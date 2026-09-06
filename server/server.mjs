@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, extname, relative, isAbsolute } from 'node:path';
 import os from 'node:os';
 import { store } from './store.mjs';
-import { dispatch, probeAgent, isRunning, dropAdapter, runConsensus, setHeadSink } from './bus.mjs';
+import { dispatch, probeAgent, isRunning, dropAdapter, runConsensus, setHeadSink, setUsageSink } from './bus.mjs';
 import { getStatus, allStatus, onStatus, setStatus, abort } from './runtime.mjs';
 import { describeProbe, warmPlugins, listPlugins } from './adapters.mjs';
 import { getCurrentVersion, checkLatest, applyUpdate, restartSelf } from './updater.mjs';
@@ -43,6 +43,10 @@ setHeadSink((conv, agents, uptoTs) => {
   const d = distillHead(conv, agents, uptoTs);
   return kb.write({ ...d, source: 'l0-head' });
 });
+
+// Usage ledger: every successful agent turn (chat / negotiation / task /
+// delegation) lands here through the bus choke point.
+setUsageSink((agentId, usage, turns) => store.recordUsage(agentId, usage, turns));
 
 // --- single-instance lock (zero-dep) ---
 // Tray launcher + a manual `node server/server.mjs` (or two launches with
@@ -1082,6 +1086,10 @@ async function handleApi(req, res, url) {
   }
   if (method === 'GET' && parts[1] === 'settings') {
     return sendJson(res, 200, store.getSettings());
+  }
+  // Usage ledger for the UI: { agentId: { 'YYYY-MM-DD': {turns,prompt,completion} } }
+  if (method === 'GET' && url.pathname === '/api/usage') {
+    return sendJson(res, 200, store.allUsage());
   }
   // Null unless this process booted off a corrupt data.json. The UI shows a
   // banner, because an empty conversation list on its own looks like a bug

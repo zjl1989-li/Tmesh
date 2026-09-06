@@ -262,12 +262,14 @@
     <div class="pop-body" id="ac-body">
       <label>名称</label><input id="ac-in-name" type="text" />
       <div class="cap-row">能力：<span id="ac-cap" class="ac-cap">—</span></div>
+      <div class="usage-row" id="ac-usage" title="按日分桶统计：tokens 为适配器可见用量（桥接类只有轮数），数据只存本机">消耗：加载中…</div>
       <label>能力类型</label>
       <select id="ac-in-kind" title="参谋：无本地操作能力，分析出谋划策；执行：可操作本地电脑">
         <option value="advisor">参谋（无本地操作）</option>
         <option value="executor">执行（可操作本地）</option>
       </select>
       <label>模型</label><input id="ac-in-model" type="text" />
+      <label>换算备注（可选）</label><input id="ac-in-rate" type="text" placeholder="例：1万token≈¥0.1 ｜ 豆包1积分≈20次调用" />
       <label>角色 / 说明</label><input id="ac-in-role" type="text" />
       <label>能力档案（注释）</label><textarea id="ac-in-notes" rows="2" placeholder="擅长什么、适合当什么角色，协商时会作为参考注入"></textarea>
       <label>系统提示词</label><textarea id="ac-in-sys"></textarea>

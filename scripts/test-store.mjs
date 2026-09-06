@@ -54,16 +54,16 @@ const GOOD = JSON.stringify({
 // --- missing file: a first run, not an error ---------------------------------
 {
   const s = sandbox(undefined);
-  const { store } = await s.open();
+  const { store, DEFAULT_SETTINGS } = await s.open();
   check('missing data.json -> default agents', store.getAgents().length, N);
   check('missing data.json -> no recovery notice', store.getRecovery(), null);
-  check('missing data.json -> default settings', store.getSettings(), { delegation: false });
+  check('missing data.json -> default settings', store.getSettings(), { ...DEFAULT_SETTINGS });
 }
 
 // --- corrupt file: this is the one that matters ------------------------------
 {
   const s = sandbox('this is not json at all {{{ [[[');
-  const { store } = await s.open();
+  const { store, DEFAULT_SETTINGS } = await s.open();
   check('corrupt -> server still boots with defaults', store.getAgents().length, N);
   check('corrupt -> conversations empty', store.getConversations().length, 0);
   check('corrupt -> broken copy kept as .corrupt', existsSync(s.data + '.corrupt'), true);
@@ -76,7 +76,7 @@ const GOOD = JSON.stringify({
   // Recovery is worthless if the recovered state cannot be written back out.
   store.setSettings({ delegation: true });
   const back = JSON.parse(readFileSync(s.data, 'utf8'));
-  check('corrupt -> can still persist after recovery', back.settings, { delegation: true });
+  check('corrupt -> can still persist after recovery', back.settings, { ...DEFAULT_SETTINGS, delegation: true });
 }
 
 // --- good file: the happy path must not regress ------------------------------

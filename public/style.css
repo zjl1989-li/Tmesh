@@ -964,3 +964,7 @@ body.light::after { opacity: .03; }
 .group-item.active {
   background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 10%, var(--panel2)), var(--panel2));
 }
+
+/* usage ledger line on the agent card (tokens+turns; warn = over daily budget) */
+.usage-row { font-size: 11px; color: var(--muted); margin: -4px 0 9px; font-family: var(--font-mono); }
+.usage-row.warn { color: var(--warn); }

@@ -357,6 +357,7 @@
 
   const api = {
     listGroups: () => req('/conversations'),
+    getUsage: () => req('/usage'),
     getGroup: (id) => req('/conversations/' + id),
     createGroup: (name, memberIds = []) => post('/groups', { name, memberIds }),
     renameGroup: (id, name) => patch('/conversations/' + id, { name }),
@@ -2073,6 +2074,44 @@
     $('#groupModal').classList.remove('hidden');
   }
 
+  // ---------------- usage ledger (tokens + turns, boss's two gauges) --------
+  const fmtNum = (n) => (n >= 10000 ? (n / 10000).toFixed(1) + '万' : String(n));
+  const todayKey = () => new Date().toISOString().slice(0, 10);
+  function usageDay(u, agentId, day) {
+    const b = (u[agentId] || {})[day] || {};
+    return { toks: (b.prompt || 0) + (b.completion || 0), turns: b.turns || 0 };
+  }
+  function usageMonth(u, agentId, month) {
+    const by = u[agentId] || {};
+    let toks = 0, turns = 0;
+    for (const [d, b] of Object.entries(by)) {
+      if (!d.startsWith(month)) continue;
+      toks += (b.prompt || 0) + (b.completion || 0);
+      turns += b.turns || 0;
+    }
+    return { toks, turns };
+  }
+  // Fire at most once per agent per day (localStorage guard). Advisory only:
+  // the ledger never blocks a turn, it just tells you who is burning.
+  async function maybeUsageWarn(agentId) {
+    try {
+      const a = findAgent(agentId); if (!a) return;
+      const [u, settings] = await Promise.all([api.getUsage(), api.getSettings()]);
+      const day = todayKey();
+      const { toks, turns } = usageDay(u, agentId, day);
+      const overTok = settings.warnTokensDay > 0 && toks >= settings.warnTokensDay;
+      const overTurn = settings.warnTurnsDay > 0 && turns >= settings.warnTurnsDay;
+      if (!overTok && !overTurn) return;
+      const key = 'zjl_usage_warn_' + agentId;
+      if (localStorage.getItem(key) === day) return;
+      localStorage.setItem(key, day);
+      const tip = a.adapterType === 'B'
+        ? '可在 agent 卡片的「模型」字段换更便宜的模型'
+        : '建议在其产品内切换更便宜的模型';
+      toast(`⚠ ${a.name} 今日已消耗 ${fmtNum(toks)} tokens · ${turns} 轮，${tip}`);
+    } catch { /* ledger is advisory; never break chat over it */ }
+  }
+
   // ---------------- POPOVER: agent status card (left-click avatar) ----------------
   let cardAgentId = null;
   function openAgentCard(id, anchorEl) {
@@ -2095,6 +2134,18 @@
     $('#ac-cap').textContent = capabilityOf(a.adapterType);
     $('#ac-cap').className = 'ac-cap ' + capClass(a.adapterType);
     $('#ac-in-model').value = a.model; $('#ac-in-role').value = a.role; $('#ac-in-sys').value = a.system;
+    $('#ac-in-rate').value = a.rateNote || '';
+    // Usage lines: today + this month. Bridge agents show turns only - their
+    // credit meter lives inside the product, tokens would be a lie.
+    api.getUsage().then((u) => api.getSettings().then((st) => [u, st])).then(([u, st]) => {
+      const el = $('#ac-usage'); if (!el) return;
+      const day = todayKey(), month = day.slice(0, 7);
+      const t = usageDay(u, id, day), m = usageMonth(u, id, month);
+      const tPart = t.toks ? `${fmtNum(t.toks)} tokens · ` : '';
+      const mPart = m.toks ? `${fmtNum(m.toks)} tokens · ` : '';
+      el.textContent = `今日 ${tPart}${t.turns} 轮 ｜ 本月 ${mPart}${m.turns} 轮${a.rateNote ? `（${a.rateNote}）` : ''}`;
+      el.classList.toggle('warn', !!(st?.warnTokensDay > 0 && t.toks >= st.warnTokensDay));
+    }).catch(() => { const el = $('#ac-usage'); if (el) el.textContent = '消耗：—'; });
     const pop = $('#agentCard'); pop.classList.remove('hidden');
     const r = anchorEl.getBoundingClientRect();
     const w = 320, h = pop.offsetHeight || 320;
@@ -2102,7 +2153,7 @@
     let top = r.bottom + 6; if (top + h > window.innerHeight) top = Math.max(12, r.top - h - 6);
     pop.style.left = Math.max(12, left) + 'px'; pop.style.top = top + 'px';
     $('#ac-save').onclick = async () => {
-      await api.updateAgent(id, { name: $('#ac-in-name').value, model: $('#ac-in-model').value, role: $('#ac-in-role').value, system: $('#ac-in-sys').value, kind: $('#ac-in-kind').value, notes: $('#ac-in-notes').value });
+      await api.updateAgent(id, { name: $('#ac-in-name').value, model: $('#ac-in-model').value, role: $('#ac-in-role').value, system: $('#ac-in-sys').value, kind: $('#ac-in-kind').value, notes: $('#ac-in-notes').value, rateNote: $('#ac-in-rate').value });
       pop.classList.add('hidden'); if (curGroupId) selectGroup(curGroupId);
     };
     $('#ac-dm').onclick = async () => { const dm = await api.openDM(id); pop.classList.add('hidden'); await selectGroup(dm.id); };
@@ -2466,7 +2517,10 @@
     if (message) {
       appendMessage(message);
       // agent 产出的文件/图片/URL 自动落回群空间分类
-      if (message.agentId) captureArtifacts(groupId, message.agentId, message.text, message.id);
+      if (message.agentId) {
+        captureArtifacts(groupId, message.agentId, message.text, message.id);
+        maybeUsageWarn(message.agentId);
+      }
     }
     if (artifact) api.getGroup(groupId).then(renderSpace);
   });

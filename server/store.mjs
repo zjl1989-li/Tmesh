@@ -48,7 +48,9 @@ function deepMerge(target, patch) {
 
 // Delegation costs extra LLM turns, and A->B->A is an infinite bill, so it is
 // opt-in. See MAX_DELEGATION_DEPTH in bus.mjs for the loop guard.
-const DEFAULT_SETTINGS = { delegation: false };
+// Usage warning thresholds (per agent per day): tokens for A/B class, turns
+// as the fallback gauge for bridge agents that expose no token numbers.
+const DEFAULT_SETTINGS = { delegation: false, warnTokensDay: 500000, warnTurnsDay: 200 };
 
 function defaults() {
   return {
@@ -115,7 +117,11 @@ function hasConversationsOnDisk() {
 if (!state.agents || !state.agents.length) state.agents = DEFAULT_AGENTS.filter((a) => !(state.deletedAgents || []).includes(a.id));
 if (!state.conversations) state.conversations = {};
 if (!state.toolStats) state.toolStats = {};
+if (!state.tokenStats) state.tokenStats = {};
+// Missing keys fall back to defaults (existing installs keep their values,
+// new settings knobs appear without a migration).
 if (!state.settings) state.settings = { ...DEFAULT_SETTINGS };
+else state.settings = { ...DEFAULT_SETTINGS, ...state.settings };
 if (typeof state.revision !== 'number') state.revision = 0;
 // Tombstones: ids the user explicitly deleted. Without them a second server
 // process holding pre-deletion state would resurrect the agent/group on its
@@ -199,6 +205,7 @@ export const store = {
       if (Array.isArray(c.memberIds)) c.memberIds = c.memberIds.filter((m) => m !== id);
     }
     delete state.toolStats[id];
+    delete state.tokenStats[id];
     save();
   },
   upsertAgent: (a) => {
@@ -235,6 +242,26 @@ export const store = {
     save();
   },
   toolStatsOf: (agentId) => state.toolStats[agentId] || {},
+  // Usage ledger, two gauges (boss's rule): tokens when the adapter can see
+  // them (A/B class), turn counts always (C-class bridge products settle
+  // credits inside their own walls - turns are the only honest floor).
+  // Buckets per day, newest kept, 60 days max so the file cannot grow forever.
+  recordUsage: (agentId, usage = null, turns = 1) => {
+    if (!agentId) return;
+    const day = new Date().toISOString().slice(0, 10);
+    const by = (state.tokenStats[agentId] ||= {});
+    const b = (by[day] ||= { turns: 0, prompt: 0, completion: 0 });
+    b.turns += turns;
+    if (usage) {
+      b.prompt += usage.prompt || 0;
+      b.completion += usage.completion || 0;
+    }
+    const days = Object.keys(by).sort();
+    while (days.length > 60) delete by[days.shift()];
+    save();
+  },
+  usageOf: (agentId) => state.tokenStats[agentId] || {},
+  allUsage: () => state.tokenStats,
   getSettings: () => state.settings,
   setSettings: (patch) => {
     state.settings = { ...state.settings, ...(patch || {}) };
@@ -243,3 +270,5 @@ export const store = {
   },
   save,
 };
+
+export { DEFAULT_SETTINGS };

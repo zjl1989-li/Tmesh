@@ -140,9 +140,12 @@ export class ModelAdapter {
 
     if (!onDelta) {
       const data = await res.json();
-      return detectAskFromModel(data.choices?.[0]?.message?.content || '(empty)');
+      const r = detectAskFromModel(data.choices?.[0]?.message?.content || '(empty)');
+      return { ...r, usage: data.usage || null };
     }
-    return detectAskFromModel((await readSseDelta(res, onDelta)).text);
+    const sse = await readSseDelta(res, onDelta);
+    const r = detectAskFromModel(sse.text);
+    return { ...r, usage: sse.usage || null };
   }
 }
 
@@ -189,6 +192,7 @@ async function readSseDelta(res, onDelta) {
   const decoder = new TextDecoder();
   let buf = '';
   let text = '';
+  let usage = null;
   for await (const chunk of res.body) {
     buf += decoder.decode(chunk, { stream: true });
     const lines = buf.split('\n');
@@ -197,15 +201,37 @@ async function readSseDelta(res, onDelta) {
       const t = line.trim();
       if (!t.startsWith('data:')) continue;
       const payload = t.slice(5).trim();
-      if (payload === '[DONE]') return { text };
+      if (payload === '[DONE]') return { text, usage };
       try {
         const json = JSON.parse(payload);
         const delta = json.choices?.[0]?.delta?.content;
         if (delta) { text += delta; onDelta(delta); }
+        // OpenAI-compatible providers that emit usage put it on a final
+        // content-less frame; capture opportunistically, never demand it.
+        if (json.usage && !usage) usage = json.usage;
       } catch { /* partial frame, skip */ }
     }
   }
-  return { text };
+  return { text, usage };
+}
+
+// Ledger normalizer: usage arrives in at least three dialects (OpenAI
+// prompt_tokens/completion_tokens, ACP usage_update camelCase, CLI result
+// objects). Map anything numeric onto {prompt, completion}; null when the
+// adapter could not see any numbers at all - turns are still counted.
+export function normalizeUsage(u) {
+  if (!u || typeof u !== 'object') return null;
+  const num = (...keys) => {
+    for (const k of keys) {
+      const v = Number(u[k]);
+      if (Number.isFinite(v) && v >= 0) return v;
+    }
+    return 0;
+  };
+  const prompt = num('prompt_tokens', 'input_tokens', 'inputTokens', 'promptTokens', 'input');
+  const completion = num('completion_tokens', 'output_tokens', 'outputTokens', 'completionTokens', 'output');
+  if (!prompt && !completion) return null;
+  return { prompt, completion };
 }
 
 // ---------- A class: DSH Typert RPC ----------

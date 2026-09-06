@@ -2,7 +2,7 @@
 // M1 scope: broadcast + directed delivery, agents run in parallel.
 // M1.5: runtime status (idle/busy/error) + abortable turns.
 // Pure ESM, zero dependencies, ASCII only.
-import { createAdapter } from './adapters.mjs';
+import { createAdapter, normalizeUsage } from './adapters.mjs';
 import { beginTask, endTask, isRunning, getPendingAsks, setPendingAsk, clearPendingAsk } from './runtime.mjs';
 
 // Adapter instances are cached PER (agent, conversation): any native session
@@ -99,6 +99,13 @@ function ctxBudget(settings) {
 // threading another parameter through a dozen call sites.
 let headSink = null;
 export function setHeadSink(fn) { headSink = typeof fn === 'function' ? fn : null; }
+
+// Usage ledger sink (same injection pattern as headSink): set once by the
+// server; receives (agentId, usage|null, turns) after every successful adapter
+// turn so the token/turn ledger covers chat, negotiation, tasks and delegation
+// from this single choke point.
+let usageSink = null;
+export function setUsageSink(fn) { usageSink = typeof fn === 'function' ? fn : null; }
 
 // What the target physically cannot already see. A DSH session only ever held
 // its own turns, so anything another member said has to be handed over
@@ -252,7 +259,7 @@ export async function dispatch({
       // just the finished answer. Kept deliberately small (no raw tool output).
       const think = [];
       const adapter = adapterFor(agent, conv.id);
-      const { text, nativeSessionId, contextLost, ask: newAsk, artifacts } = await adapter.send({
+      const { text, nativeSessionId, contextLost, ask: newAsk, artifacts, usage: turnUsage } = await adapter.send({
         agent,
         convId: conv.id,
         messages: buildContext(conv, agent.id, agents, ctxBudget(settings)),
@@ -305,6 +312,9 @@ export async function dispatch({
       persist();
       emit('message', { convId: conv.id, message: msg });
       endTask(agent.id);
+      // Ledger the turn regardless of whether the adapter saw usage numbers:
+      // turns are the universal gauge, tokens are the bonus (A/B class).
+      usageSink?.(agent.id, normalizeUsage(turnUsage), 1);
       // The question is answered, so release the router. Order matters: endTask
       // just painted this agent idle, and the ask state has to land after it.
       clearPendingAsk(conv.id, agent.id);
