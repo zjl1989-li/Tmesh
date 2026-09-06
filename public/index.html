@@ -107,6 +107,12 @@
         <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/></svg>
       </button>
       <div class="composer">
+        <div id="taskBar" class="task-bar hidden">
+          <span class="task-bar-tag">派工模式</span>
+          <select id="taskExecutor" title="选择执行 agent（只有可操作本地的成员建议担任）"></select>
+          <span class="hint">任务将以派工单形式独占分派，其他人不抢活</span>
+          <button id="btnTaskCancel" class="icon-x" title="退出派工模式"><svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4.2 4.2l7.6 7.6M11.8 4.2l-7.6 7.6"/></svg></button>
+        </div>
         <div class="composer-box">
           <textarea id="input" placeholder="输入消息 / 分配任务给群内 agent…（Enter 发送，Shift+Enter 换行）"></textarea>
           <div class="composer-bar">
@@ -123,6 +129,9 @@
             <select id="sendTarget" title="发送对象">
               <option value="">@ 所有人</option>
             </select>
+            <button class="tool" id="btnTaskMode" title="派工模式：把这条消息变成派工单，独占分派给一个执行 agent（一个活只让一个 agent 干）">
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 2.5h6.2a.8.8 0 0 1 .8.8v9.4a.8.8 0 0 1-.8.8H6.5L3 10V6z"/><path d="M8.2 6v4M6.2 8h4"/></svg>
+            </button>
             <button class="tool mic-mini" id="btnVoice" title="语音输入（占位：接 Web Speech / 豆包 ASR）">
               <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="4" height="7" rx="2"/><path d="M4.5 8a3.5 3.5 0 0 0 7 0"/><path d="M8 11.5V14"/></svg>
             </button>

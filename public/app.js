@@ -362,6 +362,8 @@
     renameGroup: (id, name) => patch('/conversations/' + id, { name }),
     setGroupMembers: (id, memberIds) => patch('/conversations/' + id, { memberIds }),
     patchGroup: (id, p) => patch('/conversations/' + id, p),
+    createTask: (id, p) => post('/conversations/' + id + '/tasks', p),
+    taskAction: (id, tid, act, p = {}) => post('/conversations/' + id + '/tasks/' + tid + '/' + act, p),
     deliberate: (id, p) => post('/conversations/' + id + '/deliberate', p),
     delibControl: (id, action, p = {}) => post('/conversations/' + id + '/deliberation/' + action, p),
     getHistory: (id) => req('/conversations/' + id + '/history'),
@@ -654,6 +656,8 @@
     renderSendTarget(g);
     renderNegotiation(null);
     renderStageBar(g);
+    taskMode = false;
+    renderTaskBar(g);
     renderGroups();
   }
 
@@ -815,6 +819,37 @@
         });
         div.dataset.mid = m.id; return div;
       }
+      // Batch C: work-order cards with status-appropriate actions.
+      if (meta.taskCard) {
+        const st = meta.taskStatus || '';
+        const stCls = { pending_approval: 'warn', queued: '', running: 'run', review: 'hot', done: 'ok', rejected: 'off', cancelled: 'off', aborted: 'off' }[st] || '';
+        const actions = [];
+        if (st === 'pending_approval') actions.push(['approve', '批准执行', 'ok'], ['reject', '拒绝', 'no']);
+        if (st === 'queued') actions.push(['cancel', '取消排队', 'no']);
+        if (st === 'running') actions.push(['abort', '中断执行', 'no']);
+        if (st === 'review') actions.push(['review-ok', '验收通过', 'ok'], ['review-no', '要求重做', 'no']);
+        const btns = actions.map(([a, l, k]) => `<button class="ask-opt ${k}" data-act="${a}">${l}</button>`).join('');
+        div.className = 'msg consensus-frame cf-task';
+        div.innerHTML = `<div class="cf-pill">${ic('clipboard', 11, 11)} 派工单 <span class="task-st ${stCls}">${esc({ pending_approval: '待审批', queued: '排队中', running: '执行中', review: '待验收', done: '已完成', rejected: '已拒绝', cancelled: '已取消', aborted: '已中断' }[st] || st)}</span></div>
+          <div class="cf-text">${renderMd(m.text)}</div>
+          ${btns ? `<div class="confirm-opts">${btns}</div>` : ''}`;
+        div.querySelectorAll('.confirm-opts .ask-opt').forEach((b) => {
+          b.onclick = async () => {
+            const act = b.dataset.act;
+            try {
+              if (act === 'review-ok') await api.taskAction(curGroupId, meta.taskCard, 'review', { ok: true });
+              else if (act === 'review-no') {
+                const note = prompt('重做要求（会带给指挥和执行 agent，可留空）：');
+                if (note === null) return;
+                await api.taskAction(curGroupId, meta.taskCard, 'review', { ok: false, note });
+              } else await api.taskAction(curGroupId, meta.taskCard, act);
+              toast('已执行：' + b.textContent);
+            } catch (e) { toast('操作失败：' + e.message); }
+            b.closest('.confirm-opts').remove();
+          };
+        });
+        div.dataset.mid = m.id; return div;
+      }
       div.className = 'msg system';
       div.innerHTML = `<div class="sys-badge">${ic('bell', 10, 10)} 系统通知</div><div class="bubble sys-bubble">${renderMd(m.text)}</div>`;
     } else {
@@ -948,6 +983,15 @@
     const target = $('#sendTarget').value || null;
     $('#input').value = '';
     autosizeInput && autosizeInput();
+    // Task mode: the message becomes an exclusive work order instead of chat.
+    if (taskMode) {
+      const executorId = $('#taskExecutor').value || null;
+      try {
+        const r = await api.createTask(curGroupId, { text: txt, executorId });
+        if (r && r.error) toast('派工失败：' + r.error);
+      } catch (e) { toast('派工失败：' + e.message); }
+      return;
+    }
     await api.sendMessage(curGroupId, txt, { toAgentId: target });
   }
 
@@ -2099,6 +2143,8 @@
   $('#btnDelibPause').onclick = () => delibAction('pause');
   $('#btnDelibResume').onclick = () => delibAction('resume');
   $('#btnDelibStop').onclick = () => { if (confirm('确定中止当前协商？已完成轮次保留，可改议题重开。')) delibAction('stop'); };
+  $('#btnTaskMode').onclick = () => setTaskMode(!taskMode);
+  $('#btnTaskCancel').onclick = () => setTaskMode(false);
   $('#closeConsensus').onclick = $('#btnCloseConsensus2').onclick = () => $('#consensusModal').classList.add('hidden');
   $('#btnStartConsensus').onclick = startConsensus;
   $('#closeSettings').onclick = () => $('#settingsModal').classList.add('hidden');
@@ -2405,6 +2451,27 @@
     } else {
       bar.innerHTML = `${ic('users', 12, 12)} 协商中 · 第 <b>${n.round || 1}</b>/<b>${n.rounds}</b> 轮 · 议题：${esc(n.topic || '')}`;
     }
+  }
+
+  // ---------------- task mode (batch C): explicit dispatch composer ----------------
+  let taskMode = false;
+  function renderTaskBar(g) {
+    const bar = $('#taskBar'), sel = $('#taskExecutor');
+    if (!bar || !sel) return;
+    const members = (g && g.memberIds) || [];
+    const roles = (g && g.memberRoles) || {};
+    const execs = members
+      .map((id) => findAgent(id))
+      .filter((a) => a && (roles[a.id] === 'executor' || a.kind === 'executor' || a.adapterType === 'A' || a.adapterType === 'C'));
+    sel.innerHTML = execs.map((a) => `<option value="${esc(a.id)}">${esc(a.name)}</option>`).join('')
+      || '<option value="">（群内没有执行类 agent）</option>';
+    bar.classList.toggle('hidden', !taskMode);
+  }
+  function setTaskMode(on) {
+    taskMode = !!on;
+    if (curGroupData) renderTaskBar(curGroupData);
+    if (on) $('#input').placeholder = '描述要执行的任务（将生成派工单，独占分派）…';
+    else $('#input').placeholder = '输入消息 / 分配任务给群内 agent…（Enter 发送，Shift+Enter 换行）';
   }
 
   // ---------------- stage engine UI (batch B) ----------------

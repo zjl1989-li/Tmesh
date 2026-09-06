@@ -17,6 +17,7 @@ import { createAcl } from './memory/acl.mjs';
 import { distillConv, distillMessage } from './memory/distill.mjs';
 import { guessKind, guessRole, ensureRoles } from './roles.mjs';
 import { runDeliberation, controlDeliberation } from './deliberate.mjs';
+import { createTask, approveTask, rejectTask, cancelTask, reviewTask, abortTask, pump, setDeps } from './tasks.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -1303,6 +1304,43 @@ async function handleApi(req, res, url) {
     } catch (e) {
       return sendJson(res, 400, { error: e.message });
     }
+  }
+  // Batch C: work orders (explicit dispatch). The pump callbacks are cached
+  // per conversation so approve/abort later can chain the queue.
+  if (method === 'POST' && parts[1] === 'conversations' && parts[2] && parts[3] === 'tasks' && !parts[4]) {
+    const c = store.getConversation(parts[2]);
+    if (!c) return sendJson(res, 404, { error: 'not found' });
+    const b = await readBody(req);
+    const emit = (event, data) => broadcast(c.id, event, data);
+    const depsIn = {
+      emit, persist: () => store.save(),
+      recordTool: (agentId, tool) => store.recordTool(agentId, tool),
+      settings: store.getSettings(), recall: kbRecall,
+    };
+    setDeps(c.id, depsIn);
+    const r = createTask(c, store.getAgents(), { text: b.text, executorId: b.executorId }, depsIn);
+    if (r.error) return sendJson(res, 400, { error: r.error });
+    pump(c, store.getAgents(), depsIn);
+    return sendJson(res, 200, { ok: true, task: r.task });
+  }
+  if (method === 'POST' && parts[1] === 'conversations' && parts[2] && parts[3] === 'tasks' && parts[4] && parts[5]) {
+    const c = store.getConversation(parts[2]);
+    if (!c) return sendJson(res, 404, { error: 'not found' });
+    const b = await readBody(req).catch(() => ({}));
+    const emit = (event, data) => broadcast(c.id, event, data);
+    const depsIn = {
+      emit, persist: () => store.save(),
+      recordTool: (agentId, tool) => store.recordTool(agentId, tool),
+      settings: store.getSettings(), recall: kbRecall,
+    };
+    setDeps(c.id, depsIn);
+    const act = parts[5];
+    const arg = act === 'review' ? { ok: !!(b && b.ok), note: (b && b.note) || '' } : depsIn;
+    const fn = { approve: approveTask, reject: rejectTask, cancel: cancelTask, review: reviewTask, abort: abortTask }[act];
+    if (!fn) return sendJson(res, 404, { error: 'unknown task action' });
+    const r = fn(c, store.getAgents(), parts[4], act === 'review' ? arg : { ...depsIn });
+    if (r.error) return sendJson(res, 400, { error: r.error });
+    return sendJson(res, 200, { ok: true, task: r.task });
   }
   if (method === 'POST' && parts[1] === 'conversations' && parts[2] && parts[3] === 'space') {
     const c = store.getConversation(parts[2]);

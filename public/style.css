@@ -531,6 +531,16 @@ body.light .modal { background: rgba(18,24,46,.32); }
 .msg.consensus-frame.cf-conclusion-frame .cf-pill { background: var(--panel3); color: var(--text); }
 .msg.consensus-frame.cf-conclusion-frame .cf-text { border-style: solid; border-color: var(--border); color: var(--text); }
 
+/* 派工单卡片 */
+.msg.consensus-frame.cf-task .cf-pill { background: color-mix(in srgb, var(--accent) 16%, var(--panel3)); color: var(--text); }
+.msg.consensus-frame.cf-task .cf-text { border-style: solid; color: var(--text); }
+.task-st { padding: 1px 8px; border-radius: var(--r-pill); font-size: 10.5px; background: var(--panel3); color: var(--muted); }
+.task-st.warn { background: color-mix(in srgb, #f59e0b 22%, transparent); color: #f59e0b; }
+.task-st.run { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); }
+.task-st.hot { background: color-mix(in srgb, #3b82f6 20%, transparent); color: #60a5fa; }
+.task-st.ok { background: color-mix(in srgb, #22c55e 20%, transparent); color: #22c55e; }
+.task-st.off { background: var(--panel3); color: var(--muted); }
+
 .msg.consensus-conclusion .bubble {
   border: 1px solid var(--border) !important; box-shadow: none; background: var(--panel);
 }

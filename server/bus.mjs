@@ -61,10 +61,11 @@ export function buildContext(conv, agentId, agents, budget = CTX_BUDGET_DEFAULT)
   for (const m of conv.messages) {
     const text = m.text || m.content || '';
     if (m.sender === 'user') { flush(); out.push({ role: 'user', content: text }); }
-    // Consensus frames (round / conclusion banners) are system-sent but MUST
-    // reach the agent as user content, otherwise a "group" negotiation has no
-    // topic. They render as dividers in the UI; here they are just context.
-    else if (m.sender === 'system' && m.meta && m.meta.consensus) { flush(); out.push({ role: 'user', content: text }); }
+    // Consensus frames (round / conclusion banners) and task order cards are
+    // system-sent but MUST reach the agent as user content, otherwise a
+    // "group" negotiation has no topic and an executor never sees its order.
+    // They render as dividers in the UI; here they are just context.
+    else if (m.sender === 'system' && m.meta && (m.meta.consensus || m.meta.task)) { flush(); out.push({ role: 'user', content: text }); }
     else if (m.sender === 'agent' && m.agentId !== agentId) { buf.push({ who: nameOf(m.agentId), text }); }
     else if (m.sender === 'agent') { flush(); out.push({ role: 'assistant', content: text }); }
   }
