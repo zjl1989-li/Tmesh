@@ -77,3 +77,26 @@ export function distillMessage(conv, msg, agents = []) {
     body: lines.join('\n'),
   };
 }
+
+// L0 head digest (batch D): the turns that just fell out of the working-memory
+// char budget. Same philosophy as the rest of this module - preserve, don't
+// invent - so the body is a speaker-labelled digest of the dropped prefix.
+// Same-title writes accumulate as dated sections in the knowledge adapter,
+// so repeated trims build one readable "what this group already discussed"
+// history instead of stacking duplicate notes.
+const MAX_HEAD_MSGS = 40;    // digest lines per archive write
+export function distillHead(conv, agents = [], uptoTs = 0) {
+  const msgs = (conv.messages || []).filter((m) => (m.ts || 0) <= uptoTs).slice(-MAX_HEAD_MSGS);
+  const lines = msgs.map((m) => {
+    const who = m.sender === 'user' ? '用户' : m.sender === 'system' ? '系统' : nameOf(agents, m.agentId);
+    return `- ${who}：${clip(m.text)}`;
+  });
+  return {
+    title: `群档-${conv.name || conv.id}-L0头部摘录`,
+    body: [
+      `（工作记忆预算裁剪前自动归档，覆盖至 ${new Date(uptoTs || Date.now()).toISOString()}）`,
+      ``,
+      lines.join('\n') || '（无内容）',
+    ].join('\n'),
+  };
+}

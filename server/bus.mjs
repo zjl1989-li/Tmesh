@@ -46,34 +46,42 @@ export function dropAdapter(agentId) {
 // lives in the knowledge base (L2) and comes back in via the recall pipe.
 const CTX_BUDGET_DEFAULT = 12000;
 
-export function buildContext(conv, agentId, agents, budget = CTX_BUDGET_DEFAULT) {
+export function buildContext(conv, agentId, agents, budget = CTX_BUDGET_DEFAULT, drops = null) {
   const nameOf = (id) => (agents.find((a) => a.id === id) || { name: id }).name;
   const out = [];
+  // Parallel to `out`: the ts of the newest raw message folded into each block.
+  // Lets the trim loop report WHAT left the window, so the L0 head can be
+  // archived before it is forgotten.
+  const blockTs = [];
   const buf = [];
+  let bufTs = 0;
   const flush = () => {
     if (!buf.length) return;
     out.push({
       role: 'user',
       content: `[群内其他成员的发言]\n${buf.map((l) => `${l.who}: ${l.text}`).join('\n')}`,
     });
-    buf.length = 0;
+    blockTs.push(bufTs);
+    buf.length = 0; bufTs = 0;
   };
   for (const m of conv.messages) {
     const text = m.text || m.content || '';
-    if (m.sender === 'user') { flush(); out.push({ role: 'user', content: text }); }
+    if (m.sender === 'user') { flush(); out.push({ role: 'user', content: text }); blockTs.push(m.ts || 0); }
     // Consensus frames (round / conclusion banners) and task order cards are
     // system-sent but MUST reach the agent as user content, otherwise a
     // "group" negotiation has no topic and an executor never sees its order.
     // They render as dividers in the UI; here they are just context.
-    else if (m.sender === 'system' && m.meta && (m.meta.consensus || m.meta.task)) { flush(); out.push({ role: 'user', content: text }); }
-    else if (m.sender === 'agent' && m.agentId !== agentId) { buf.push({ who: nameOf(m.agentId), text }); }
-    else if (m.sender === 'agent') { flush(); out.push({ role: 'assistant', content: text }); }
+    else if (m.sender === 'system' && m.meta && (m.meta.consensus || m.meta.task)) { flush(); out.push({ role: 'user', content: text }); blockTs.push(m.ts || 0); }
+    else if (m.sender === 'agent' && m.agentId !== agentId) { buf.push({ who: nameOf(m.agentId), text }); bufTs = Math.max(bufTs, m.ts || 0); }
+    else if (m.sender === 'agent') { flush(); out.push({ role: 'assistant', content: text }); blockTs.push(m.ts || 0); }
   }
   flush();
   let total = out.reduce((n, m) => n + (m.content || '').length, 0);
   while (out.length > 1 && total > budget) {
     total -= (out[0].content || '').length;
+    if (drops) drops.push({ ts: blockTs[0] || 0, text: out[0].content });
     out.shift();
+    blockTs.shift();
   }
   return out;
 }
@@ -83,6 +91,14 @@ function ctxBudget(settings) {
   const n = Number(settings && settings.ctxBudgetChars);
   return Number.isFinite(n) && n > 0 ? n : CTX_BUDGET_DEFAULT;
 }
+
+// L0 head sink (batch D): set once by the server; receives (conv, agents,
+// uptoTs) for every trim event so dropped turns land in the knowledge base
+// instead of being silently forgotten. Module-level injectable so every
+// dispatch path (chat, negotiation, task runs, consensus) is covered without
+// threading another parameter through a dozen call sites.
+let headSink = null;
+export function setHeadSink(fn) { headSink = typeof fn === 'function' ? fn : null; }
 
 // What the target physically cannot already see. A DSH session only ever held
 // its own turns, so anything another member said has to be handed over
@@ -184,7 +200,22 @@ export async function dispatch({
   // Mark the target's own seat: given a plain name list, agents counted
   // themselves twice ("WorkBuddy、DSH、投资研究，加上我共四位").
   const rosterFor = (agentId) => (conv.memberIds || []).map((id) => nameOf(id) + (id === agentId ? '（你）' : ''));
-  const prompt = lastUserText(buildContext(conv, '', agents, ctxBudget(settings)));
+  // L0 HEAD AUTO-DISTILL: the prompt-extraction pass doubles as the trim probe.
+  // Whatever falls out of the budget here is the head that every per-agent
+  // context will also lose - archive it once (deduped by the ts marker on the
+  // conversation) and the recall pipe brings it back when relevant. Fire on the
+  // synchronous path; the sink itself must never fail the turn.
+  const drops = [];
+  const prompt = lastUserText(buildContext(conv, '', agents, ctxBudget(settings), drops));
+  if (drops.length && headSink) {
+    const cutoff = Math.max(...drops.map((d) => d.ts || 0));
+    if (cutoff > (conv.l0ArchivedTs || 0)) {
+      conv.l0ArchivedTs = cutoff;
+      try { headSink(conv, agents, cutoff); } catch (e) {
+        console.error('[bus] L0 head distill failed:', e.message);
+      }
+    }
+  }
   // RETRIEVAL PIPE (L2 -> L0): knowledge-base hits relevant to this turn,
   // fetched BEFORE dispatch and handed to every adapter as `recall`. Adapters
   // that fold blocks (DSH) or prepend context (model API) use it; the rest

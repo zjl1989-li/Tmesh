@@ -7,14 +7,14 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, extname, relative, isAbsolute } from 'node:path';
 import os from 'node:os';
 import { store } from './store.mjs';
-import { dispatch, probeAgent, isRunning, dropAdapter, runConsensus } from './bus.mjs';
+import { dispatch, probeAgent, isRunning, dropAdapter, runConsensus, setHeadSink } from './bus.mjs';
 import { getStatus, allStatus, onStatus, setStatus, abort } from './runtime.mjs';
 import { describeProbe, warmPlugins, listPlugins } from './adapters.mjs';
 import { getCurrentVersion, checkLatest, applyUpdate, restartSelf } from './updater.mjs';
 import { createKnowledge } from './memory/knowledge.mjs';
 import { createSkills } from './memory/skills.mjs';
 import { createAcl } from './memory/acl.mjs';
-import { distillConv, distillMessage } from './memory/distill.mjs';
+import { distillConv, distillMessage, distillHead } from './memory/distill.mjs';
 import { guessKind, guessRole, ensureRoles } from './roles.mjs';
 import { runDeliberation, controlDeliberation } from './deliberate.mjs';
 import { createTask, approveTask, rejectTask, cancelTask, reviewTask, abortTask, pump, setDeps } from './tasks.mjs';
@@ -36,6 +36,13 @@ const distillConclusion = (conv, msg, agents) => {
   const d = distillMessage(conv, msg, agents);
   return kb.write({ ...d, source: 'consensus' });
 };
+// Batch D: turns trimmed off the L0 working-memory budget are archived into
+// the same vault (dated sections under one title per group), so context loss
+// degrades to "needs a recall" instead of amnesia.
+setHeadSink((conv, agents, uptoTs) => {
+  const d = distillHead(conv, agents, uptoTs);
+  return kb.write({ ...d, source: 'l0-head' });
+});
 
 // --- single-instance lock (zero-dep) ---
 // Tray launcher + a manual `node server/server.mjs` (or two launches with
