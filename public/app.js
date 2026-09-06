@@ -966,12 +966,23 @@
 
   function renderSendTarget(g) {
     const sel = $('#sendTarget'); sel.innerHTML = '<option value="">@ 所有人</option>';
+    const roles = (g && g.memberRoles) || {};
     (g.memberIds || []).forEach((id) => {
       const a = findAgent(id); if (!a) return;
-      const o = document.createElement('option'); o.value = id; o.textContent = '@ ' + a.name;
+      // One selector now carries both chat target and dispatch target, so each
+      // entry announces what the member is: capable of local ops or a pure model.
+      const tag = execCapable(a, roles) ? '可操作' : '模型';
+      const o = document.createElement('option'); o.value = id; o.textContent = '@ ' + a.name + '（' + tag + '）';
       sel.appendChild(o);
     });
     fitSendTarget();
+  }
+
+  // Executor-capable = holds the group's executor role, or is executor-kind /
+  // reaches the machine via adapter A (DSH) / C (bridge). Shared by the target
+  // dropdown annotation and the task-mode gate.
+  function execCapable(a, roles) {
+    return !!(a && (roles[a.id] === 'executor' || a.kind === 'executor' || a.adapterType === 'A' || a.adapterType === 'C'));
   }
 
   // Native <select> sizes itself to the LONGEST option, which makes the
@@ -999,8 +1010,9 @@
     $('#input').value = '';
     autosizeInput && autosizeInput();
     // Task mode: the message becomes an exclusive work order instead of chat.
+    // The executor is whoever is picked in the unified @ dropdown.
     if (taskMode) {
-      const executorId = $('#taskExecutor').value || null;
+      const executorId = target;
       try {
         const r = await api.createTask(curGroupId, { text: txt, executorId });
         if (r && r.error) toast('派工失败：' + r.error);
@@ -2226,7 +2238,12 @@
   // 窄窗口抽屉：右栏「群空间」折叠为悬浮按钮
   $('#drawerToggle').onclick = () => document.body.classList.toggle('drawer-open');
   // 发送对象下拉：按当前选中项收窄宽度
-  $('#sendTarget').addEventListener('change', fitSendTarget);
+  $('#sendTarget').addEventListener('change', () => {
+    fitSendTarget();
+    // Switched away from an executor target while armed -> disarm, the order
+    // must always name a machine-capable member.
+    if (taskMode) setTaskMode(true); // revalidates; disarms with a toast if invalid
+  });
   // 主题切换：body.light 与深色主题互切，localStorage 记忆选择
   function syncThemeBtn() {
     const b = $('#btnTheme'); if (!b) return;
@@ -2479,25 +2496,39 @@
     }
   }
 
-  // ---------------- task mode (batch C): explicit dispatch composer ----------------
+  // ---------------- task mode (batch C, merged into the @ dropdown) ----------------
+  // One selector: @ entries are annotated （可操作）/（模型）; the dispatch
+  // button only arms when an executor-capable member is the target.
   let taskMode = false;
+  function currentTargetAgent() {
+    const g = curGroupData || {};
+    const id = $('#sendTarget').value;
+    const a = id ? findAgent(id) : null;
+    return { a, roles: g.memberRoles || {} };
+  }
   function renderTaskBar(g) {
-    const bar = $('#taskBar'), sel = $('#taskExecutor');
-    if (!bar || !sel) return;
-    const members = (g && g.memberIds) || [];
-    const roles = (g && g.memberRoles) || {};
-    const execs = members
-      .map((id) => findAgent(id))
-      .filter((a) => a && (roles[a.id] === 'executor' || a.kind === 'executor' || a.adapterType === 'A' || a.adapterType === 'C'));
-    sel.innerHTML = execs.map((a) => `<option value="${esc(a.id)}">${esc(a.name)}</option>`).join('')
-      || '<option value="">（群内没有执行类 agent）</option>';
+    const bar = $('#taskBar'), hint = $('#taskHint');
+    if (!bar || !hint) return;
     bar.classList.toggle('hidden', !taskMode);
+    if (!taskMode) return;
+    const { a } = currentTargetAgent();
+    hint.textContent = a
+      ? `任务将以派工单独占分派给 @${a.name}，其他人不抢活`
+      : '任务将以派工单形式独占分派';
   }
   function setTaskMode(on) {
+    if (on) {
+      const { a, roles } = currentTargetAgent();
+      if (!a || !execCapable(a, roles)) {
+        toast('派工需先在 @ 下拉里选中一个（可操作）成员');
+        return;
+      }
+    }
     taskMode = !!on;
     if (curGroupData) renderTaskBar(curGroupData);
-    if (on) $('#input').placeholder = '描述要执行的任务（将生成派工单，独占分派）…';
-    else $('#input').placeholder = '输入消息 / 分配任务给群内 agent…（Enter 发送，Shift+Enter 换行）';
+    $('#input').placeholder = on
+      ? '描述要执行的任务（将生成派工单，独占分派）…'
+      : '输入消息 / 分配任务给群内 agent…（Enter 发送，Shift+Enter 换行）';
   }
 
   // ---------------- stage engine UI (batch B) ----------------
