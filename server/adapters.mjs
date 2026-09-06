@@ -230,8 +230,19 @@ export function normalizeUsage(u) {
   };
   const prompt = num('prompt_tokens', 'input_tokens', 'inputTokens', 'promptTokens', 'input');
   const completion = num('completion_tokens', 'output_tokens', 'outputTokens', 'completionTokens', 'output');
-  if (!prompt && !completion) return null;
-  return { prompt, completion };
+  // CLI agents (codex exec) print only a grand total - no split available.
+  const total = num('total_tokens', 'totalTokens', 'total');
+  if (!prompt && !completion && !total) return null;
+  return { prompt, completion, total };
+}
+
+// codex exec ends stdout with "tokens used\n<number>"; pull the grand total
+// out so G-class agents land in the ledger too (turns were already counted).
+export function parseCliUsage(stdout) {
+  const m = /tokens used\s*\r?\n\s*([\d,]+)/i.exec(String(stdout || ''));
+  if (!m) return null;
+  const n = Number(m[1].replace(/,/g, ''));
+  return Number.isFinite(n) && n > 0 ? { total_tokens: n } : null;
 }
 
 // ---------- A class: DSH Typert RPC ----------
@@ -1722,8 +1733,11 @@ export class CliAdapter {
         try { text = readFileSync(tmpFile, 'utf8').trim(); } catch { /* no file */ }
         try { unlinkSync(tmpFile); } catch { /* already gone */ }
       }
-      if (!text) text = (stdout || '').trim() || (stderr || '').trim();
-      return { text: text || (code === 0 ? '(CLI 无输出)' : `CLI 异常退出 code=${code}`) };
+      if (!text) text = (stdout || '').trim() || (stderr || '').trim() || (code === 0 ? '(CLI 无输出)' : `CLI 异常退出 code=${code}`);
+      // codex (non-TTY) prints the session stream incl. "tokens used" on
+      // STDERR and only the final reply on stdout - parse the merged streams.
+      const usage = parseCliUsage((stdout || '') + '\n' + (stderr || ''));
+      return usage ? { text, usage } : { text };
     } finally { this._child = null; }
   }
 }

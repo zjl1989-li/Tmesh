@@ -255,6 +255,9 @@ export const store = {
     if (usage) {
       b.prompt += usage.prompt || 0;
       b.completion += usage.completion || 0;
+      // CLI agents report only a grand total (codex exec "tokens used");
+      // kept in its own bucket so prompt/completion stay split-accurate.
+      b.total = (b.total || 0) + (usage.total || 0);
     }
     const days = Object.keys(by).sort();
     while (days.length > 60) delete by[days.shift()];

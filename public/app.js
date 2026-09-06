@@ -2079,14 +2079,14 @@
   const todayKey = () => new Date().toISOString().slice(0, 10);
   function usageDay(u, agentId, day) {
     const b = (u[agentId] || {})[day] || {};
-    return { toks: (b.prompt || 0) + (b.completion || 0), turns: b.turns || 0 };
+    return { toks: (b.prompt || 0) + (b.completion || 0) + (b.total || 0), turns: b.turns || 0 };
   }
   function usageMonth(u, agentId, month) {
     const by = u[agentId] || {};
     let toks = 0, turns = 0;
     for (const [d, b] of Object.entries(by)) {
       if (!d.startsWith(month)) continue;
-      toks += (b.prompt || 0) + (b.completion || 0);
+      toks += (b.prompt || 0) + (b.completion || 0) + (b.total || 0);
       turns += b.turns || 0;
     }
     return { toks, turns };
