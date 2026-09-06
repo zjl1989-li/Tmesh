@@ -1663,6 +1663,37 @@ export class CliAdapter {
     return true; // bare name -> resolve on PATH at send time
   }
 
+  // Deep probe: ONE real CLI roundtrip. Catches the "fake alive" case the
+  // cheap ping cannot see - binary exists but the model path behind it is
+  // dead (codex proxy down -> every turn answers 502). Costs a full CLI
+  // launch (~seconds), so only explicit probes call this, never the heartbeat.
+  async deepPing() {
+    const t0 = Date.now();
+    if (!this.cliCmd) return { ok: false, ms: 0, note: '未配置 cliCmd' };
+    const cmd = this.cliCmd === 'codex' ? resolveCodexCli() : this.cliCmd;
+    if (!cmd) return { ok: false, ms: Date.now() - t0, note: 'CLI 可执行文件不存在' };
+    return await new Promise((resolve) => {
+      let child;
+      try {
+        child = spawn(cmd, [...this.cliArgs, 'Reply with exactly: OK'], { cwd: this.cwd, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+      } catch (e) { return resolve({ ok: false, ms: Date.now() - t0, note: '无法启动：' + e.message }); }
+      child.stdin.end('');
+      let out = '', err = '';
+      child.stdout.on('data', (d) => { out += d; });
+      child.stderr.on('data', (d) => { err += d; });
+      const timer = setTimeout(() => {
+        try { child.kill('SIGTERM'); } catch {}
+        resolve({ ok: false, ms: Date.now() - t0, note: '探测超时（30s 内 CLI 未完成一轮）' });
+      }, 30000);
+      child.on('close', (code) => {
+        clearTimeout(timer);
+        const text = (out || '').trim();
+        if (code === 0 && text) resolve({ ok: true, ms: Date.now() - t0, note: 'CLI 拉起并完成一轮真实对话' });
+        else resolve({ ok: false, ms: Date.now() - t0, note: (text || err || '').split('\n').filter(Boolean).pop() || `退出码 ${code}` });
+      });
+    });
+  }
+
   cancel() {
     if (this._child) { try { this._child.kill('SIGTERM'); } catch {} this._child = null; }
   }

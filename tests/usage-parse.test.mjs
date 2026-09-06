@@ -2,7 +2,7 @@
 // node:test + node:assert only. ASCII only.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeUsage, parseCliUsage } from '../server/adapters.mjs';
+import { normalizeUsage, parseCliUsage, CliAdapter } from '../server/adapters.mjs';
 
 test('normalizeUsage: openai dialect maps to prompt/completion', () => {
   assert.deepEqual(normalizeUsage({ prompt_tokens: 10, completion_tokens: 3 }), { prompt: 10, completion: 3, total: 0 });
@@ -36,4 +36,13 @@ test('parseCliUsage: no marker or zero -> null', () => {
   assert.equal(parseCliUsage('no usage here'), null);
   assert.equal(parseCliUsage('tokens used\n0\n'), null);
   assert.equal(parseCliUsage(''), null);
+});
+
+test('deepPing: real CLI roundtrip detects a live and a broken command', async () => {
+  const mk = (cliArgs) => new CliAdapter({ id: 't', name: 't', config: { cliCmd: 'node', cliArgs } });
+  const good = await mk(['-e', 'console.log("OK")']).deepPing();
+  assert.equal(good.ok, true, JSON.stringify(good));
+  const bad = await mk(['-e', 'console.error("502 upstream dead"); process.exit(1)']).deepPing();
+  assert.equal(bad.ok, false);
+  assert.ok(/502/.test(bad.note), 'note should carry the CLI error tail, got: ' + bad.note);
 });
