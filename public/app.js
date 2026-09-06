@@ -614,14 +614,15 @@
       { icon: 'pencil', label: '重命名', act: () => openGroupModal(g.id) },
       { icon: 'archive', label: '完结归档', act: async () => {
           await api.archiveGroup(g.id);
-          if (curGroupId === g.id) { curGroupId = null; $('#convTitle').textContent = '选择一个群'; }
+          if (curGroupId === g.id) { curGroupId = null; resetChatPane(); }
           await renderGroups();
           toast('已归档，可点群聊旁文件夹查看');
         } },
       { icon: 'trash', label: '删除', act: async () => {
           if (confirm('确认删除群「' + g.name + '」？此操作不可撤销')) {
-            await api.deleteGroup(g.id); if (curGroupId === g.id) curGroupId = null;
-            await renderGroups(); $('#convTitle').textContent = '选择一个群';
+            await api.deleteGroup(g.id);
+            if (curGroupId === g.id) { curGroupId = null; resetChatPane(); }
+            await renderGroups();
           }
         } },
     ];
@@ -642,6 +643,20 @@
   }
 
   // ---------------- CENTER ----------------
+  // Clear the middle chat pane + right space pane when nothing is selected
+  // (group deleted / archived, or the selected group vanished server-side).
+  // Without this, stale members/messages masquerade as a live group.
+  function resetChatPane() {
+    curGroupData = null;
+    $('#convTitle').textContent = '选择一个群';
+    const av = $('#memberAvatars'); if (av) av.innerHTML = '';
+    const box = $('#messages'); if (box) box.innerHTML = '<div class="empty">从左侧选择一个群开始聊天</div>';
+    renderSendTarget({ memberIds: [] });
+    renderNegotiation(null);
+    renderStageBar(null);
+    const sp = $('#spaceBody'); if (sp) sp.innerHTML = '';
+  }
+
   async function selectGroup(id) {
     curGroupId = id;
     windowCount = PAGE_SIZE; // each group starts at the newest page
@@ -1553,7 +1568,18 @@
     const del = card.querySelector('.ac-del');
     if (del) del.onclick = async () => {
       if (!confirm(`确定删除「${a.name}」？它会退出接入且无法撤销。`)) return;
-      await api.deleteAgent(a.id); renderRegistry();
+      await api.deleteAgent(a.id);
+      renderRegistry();
+      await refreshAgents(); // stale agentsCache would keep painting its avatar
+      // The agent just left every group server-side (store.deleteAgent cleans
+      // memberIds); refresh whatever is on screen so the middle pane and the
+      // group list stop showing it.
+      if (curGroupId) {
+        const g = await api.getGroup(curGroupId).catch(() => null);
+        if (g) await selectGroup(curGroupId);
+        else { curGroupId = null; resetChatPane(); }
+      }
+      await renderGroups();
     };
     const light = card.querySelector('.traffic');
     if (light) light.onclick = () => openTaskPop(a.id, light);

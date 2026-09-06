@@ -112,11 +112,16 @@ function hasConversationsOnDisk() {
     return Object.keys((p && p.conversations) || {}).length > 0;
   } catch { return false; }
 }
-if (!state.agents || !state.agents.length) state.agents = DEFAULT_AGENTS;
+if (!state.agents || !state.agents.length) state.agents = DEFAULT_AGENTS.filter((a) => !(state.deletedAgents || []).includes(a.id));
 if (!state.conversations) state.conversations = {};
 if (!state.toolStats) state.toolStats = {};
 if (!state.settings) state.settings = { ...DEFAULT_SETTINGS };
 if (typeof state.revision !== 'number') state.revision = 0;
+// Tombstones: ids the user explicitly deleted. Without them a second server
+// process holding pre-deletion state would resurrect the agent/group on its
+// next mergeExternal() save.
+if (!Array.isArray(state.deletedAgents)) state.deletedAgents = [];
+if (!Array.isArray(state.deletedConvs)) state.deletedConvs = [];
 
 let lastMtime = mtimeOf(DATA);
 
@@ -134,10 +139,15 @@ function mtimeOf(path) {
   try { return statSync(path).mtimeMs; } catch { return null; }
 }
 
-// Merge in anything another process wrote since our last save.
+// Merge in anything another process wrote since our last save. Tombstoned
+// agents/conversations are skipped: the user deleted them on purpose, so a
+// stale peer's copy must not come back.
 function mergeExternal() {
   const external = load();
+  const deadA = new Set(state.deletedAgents || []);
+  const deadC = new Set(state.deletedConvs || []);
   for (const [id, conv] of Object.entries(external.conversations || {})) {
+    if (deadC.has(id)) continue;
     const mine = state.conversations[id];
     // keep whichever side has more messages; they are append-only logs
     if (!mine || (conv.messages?.length || 0) > (mine.messages?.length || 0)) {
@@ -145,6 +155,7 @@ function mergeExternal() {
     }
   }
   for (const a of external.agents || []) {
+    if (deadA.has(a.id)) continue;
     if (!state.agents.some((x) => x.id === a.id)) state.agents.push(a);
   }
 }
@@ -181,6 +192,8 @@ export const store = {
   getAgents: () => state.agents,
   deleteAgent: (id) => {
     state.agents = state.agents.filter((x) => x.id !== id);
+    // Tombstone so mergeExternal() never resurrects it from a stale peer.
+    if (!state.deletedAgents.includes(id)) state.deletedAgents.push(id);
     // Drop the removed agent from every group's member list so no stale ids linger.
     for (const c of Object.values(state.conversations)) {
       if (Array.isArray(c.memberIds)) c.memberIds = c.memberIds.filter((m) => m !== id);
@@ -209,6 +222,7 @@ export const store = {
   },
   deleteConversation: (id) => {
     delete state.conversations[id];
+    if (!state.deletedConvs.includes(id)) state.deletedConvs.push(id);
     save();
   },
   // Observed capabilities: which tools an agent has actually called, and how often.
