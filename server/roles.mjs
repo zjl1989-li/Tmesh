@@ -6,8 +6,13 @@
 //   2. PER-GROUP role in conv.memberRoles: { agentId: role }. The same agent
 //      can command group A and execute in group B; swapping a role mid-flight
 //      is a group-setting edit, not a global change.
-// Roles: commander (dispatches tasks), executor (does local work),
-//        reviewer (audits results), advisor (analyses / deliberates).
+// Roles: commander (process retro + dispatch, never audits code),
+//        executor (does local work),
+//        reviewer (stage quality gate: code review, security review, bug
+//          hunting on the deliverable - NOT process/scheduling),
+//        advisor (analyses / deliberates).
+// Commander-retro and reviewer-audit are separate lanes on task completion
+// (tasks.mjs): audit first, its verdict feeds the commander's scheduling.
 // Pure ESM, zero dependencies, ASCII only (labels may be CJK).
 
 export const ROLES = ['commander', 'executor', 'reviewer', 'advisor'];

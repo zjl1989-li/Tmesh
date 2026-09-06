@@ -86,3 +86,39 @@ test('review: verdict recorded with note', () => {
   assert.equal(r.task.verdict.ok, true);
   assert.equal(r.task.verdict.note, '干得不错');
 });
+
+// Two-lane feedback split (boss's rule): reviewer audits the deliverable
+// (code/security/bugs) BEFORE the commander does process retro; the audit
+// verdict is quoted into the retro frame. Dispatch here hits dead localhost
+// ports (fast local refusal, no external network), which is exactly what we
+// want: the lanes still emit their system frames and run to completion.
+test('feedback split: audit lane fires before commander retro lane', async () => {
+  const agents = [
+    { id: 'dsh', name: 'DSH', adapterType: 'A', config: { adapterType: 'A', ports: [59998, 59999] } },
+    { id: 'aud', name: '审核员', adapterType: 'A', config: { adapterType: 'A', ports: [59997] } },
+    { id: 'cmd', name: '指挥官', adapterType: 'A', config: { adapterType: 'A', ports: [59996] } },
+  ];
+  const conv = { id: 'c9', memberIds: ['dsh', 'aud', 'cmd'], messages: [], approval: 'before',
+    memberRoles: { dsh: 'executor', aud: 'reviewer', cmd: 'commander' } };
+  ensureRoles(conv, agents);
+  const t = createTask(conv, agents, { text: '写个模块' }, deps).task;
+  assert.equal(t.status, 'pending_approval');
+  approveTask(conv, agents, t.id, deps); // -> queued + pump fires
+  // Dead-port probes take a moment (per-port timeout); poll instead of a
+  // fixed sleep so the test stays fast when refusal is instant.
+  for (let i = 0; i < 100 && t.status === 'queued'; i++) {
+    await new Promise((res) => setTimeout(res, 100));
+  }
+  for (let i = 0; i < 100 && conv.messages.every((m) => !(m.text || '').includes('[指挥复盘]')); i++) {
+    await new Promise((res) => setTimeout(res, 100));
+  }
+  assert.equal(t.status, 'review');
+  const auditIdx = conv.messages.findIndex((m) => (m.text || '').includes('[阶段审核]'));
+  const retroIdx = conv.messages.findIndex((m) => (m.text || '').includes('[指挥复盘]'));
+  assert.ok(auditIdx >= 0, 'audit frame missing');
+  assert.ok(retroIdx > auditIdx, 'retro must come after audit');
+  assert.equal(conv.messages[auditIdx].meta.reviewLane, 'audit');
+  assert.equal(conv.messages[retroIdx].meta.reviewLane, 'retro');
+  assert.ok(conv.messages[auditIdx].text.includes('代码审核'), 'audit scope must name code review');
+  assert.ok(conv.messages[auditIdx].text.includes('安全审核'), 'audit scope must name security review');
+});

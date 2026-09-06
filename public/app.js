@@ -2066,7 +2066,7 @@
       row.innerHTML = `<label class="member-check"><input type="checkbox" data-id="${a.id}" ${checked}/>
         ${avHtml(a)}<span class="mname">${esc(a.name)}</span></label>
         ${kindBadge}
-        <select class="role-sel" data-id="${a.id}" title="群内角色（可随时临时调换）">${roleSel}</select>`;
+        <select class="role-sel" data-id="${a.id}" title="群内角色（可随时临时调换）\n指挥：流程复盘与派单调度，不审代码\n执行：干活的\n审核：阶段质量关卡——代码审核/安全审核/查bug\n参谋：出方案、参与协商">${roleSel}</select>`;
       box.appendChild(row);
     });
     $('#groupModal').dataset.gid = id;

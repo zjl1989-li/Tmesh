@@ -198,16 +198,50 @@ async function runTask(conv, agents, task, depsIn) {
     reply ? `执行结果摘要：${reply.replace(/\s+/g, ' ').slice(0, 300)}` : '（执行 agent 没有返回有效内容）',
   ].join('\n'), { taskCard: task.id, taskStatus: 'review' });
 
-  // Feedback loop: the commander gets the full result and plans the next step.
-  const commander = memberWithRole(conv, agents, 'commander');
-  if (commander && commander.id !== task.executorId) {
+  // Feedback loop, two SEPARATE lanes (boss's rule: audit quality is not the
+  // commander's job, scheduling is not the reviewer's):
+  //   Lane 1 (reviewer): stage quality gate - code review, security review,
+  //     bug hunting on the actual deliverable.
+  //   Lane 2 (commander): process retro - reads the executor's result AND the
+  //     reviewer's verdict if present, then plans the next move. Never asked
+  //     to audit code itself.
+  const reviewer = memberWithRole(conv, agents, 'reviewer');
+  let verdict = '';
+  if (reviewer && reviewer.id !== task.executorId) {
     sysMsg(conv, emit, persist, [
-      `[指挥复盘] 执行 agent ${nameOf(agents, task.executorId)} 已完成派工单 #${task.seq}（${task.text}），结果如下：`,
+      `[阶段审核] 派工单 #${task.seq}（${task.text}）执行完成，请审核 agent ${nameOf(agents, task.executorId)} 的产出：`,
       '',
       (reply || '（无返回内容）').slice(0, 6000),
       '',
-      '请复盘执行效果：是否达成目标、有无遗漏或需返工，并给出下一步安排建议（用户拥有最终审批权）。',
-    ].join('\n'), { taskReview: task.id, taskStatus: 'review' });
+      [
+        '审核范围（按优先级）：',
+        '1. 代码审核：逻辑正确性、边界条件、异常处理、可维护性；',
+        '2. 安全审核：注入/越权/敏感信息泄露/依赖风险等；',
+        '3. Bug 排查：能否复现、根因、修复建议；',
+        '4. 与派工单要求的符合度。',
+      ].join('\n'),
+      '输出格式：【通过】或【不通过】+ 问题清单（每条：位置/严重度/建议）。不评审流程与调度，那是指挥的职责。',
+    ].join('\n'), { taskReview: task.id, taskStatus: 'review', reviewLane: 'audit' });
+    try {
+      await dispatch({
+        conv, agents, toAgentId: reviewer.id, emit, persist, recordTool,
+        settings: { ...settings, delegation: false }, recall,
+      });
+      // Pick up the reviewer's latest reply so the commander retro can quote it.
+      verdict = lastReplyOf(conv, reviewer.id, task.finishedAt) || '';
+    } catch (e) {
+      console.error('[tasks] reviewer audit failed:', e.message);
+    }
+  }
+
+  const commander = memberWithRole(conv, agents, 'commander');
+  if (commander && commander.id !== task.executorId) {
+    sysMsg(conv, emit, persist, [
+      `[指挥复盘] 执行 agent ${nameOf(agents, task.executorId)} 已完成派工单 #${task.seq}（${task.text}）。`,
+      verdict ? `审核结论（供参考，调度时请考虑是否需返工）：${verdict.replace(/\s+/g, ' ').slice(0, 800)}` : '',
+      '',
+      '请复盘流程与进度：目标是否达成、下一步安排建议（派新单 / 退回重做 / 交付用户验收）。用户拥有最终审批权；代码与安全质量以审核 lane 的结论为准，你不需要自行审查代码。',
+    ].filter(Boolean).join('\n'), { taskReview: task.id, taskStatus: 'review', reviewLane: 'retro' });
     try {
       await dispatch({
         conv, agents, toAgentId: commander.id, emit, persist, recordTool,
