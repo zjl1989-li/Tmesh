@@ -383,7 +383,7 @@
     getNotice: () => req('/notice'),
     setAgentStatus: (id, status) => patch('/agents/' + id, { status }),
     createAgent: (a) => post('/agents', a),
-    probeAdapter: (config) => post('/agents/probe', { config }),
+    probeAdapter: (config, deep) => post('/agents/probe', { config, deep: !!deep }),
     launchAgent: (id) => post('/agents/' + id + '/launch'),
     stopAgent: (id) => post('/agents/' + id + '/stop'),
     abortAgent: (id) => post('/agents/' + id + '/abort'),
@@ -864,6 +864,12 @@
             b.closest('.confirm-opts').remove();
           };
         });
+        div.dataset.mid = m.id; return div;
+      }
+      // Context reset (/clear): thin divider, not a system bubble.
+      if (meta.ctxReset) {
+        div.className = 'msg ctx-reset';
+        div.innerHTML = `<div class="ctx-reset-line">${m.text}</div>`;
         div.dataset.mid = m.id; return div;
       }
       div.className = 'msg system';
@@ -1897,11 +1903,21 @@
     if (wiz.chosenType) cfg.adapterType = wiz.chosenType.key;
     const hint = $('#probeHint');
     try {
-      const p = await api.probeAdapter(cfg);
+      const p = await api.probeAdapter(cfg, true);
       const ok = p.type === wiz.chosenType.key;
       hint.className = 'wiz-probe ' + (ok ? 'ok' : 'warn');
       // capability, not adapter class — the user never sees A/B/C/D/E/W
-      hint.innerHTML = ok ? ic('check', 11, 11) + ' 可以接入' : ic('warn', 11, 11) + ' 按已填信息，它会被当成「' + esc(capabilityOf(p.type)) + '」的 agent';
+      let html = ok ? ic('check', 11, 11) + ' 可以接入' : ic('warn', 11, 11) + ' 按已填信息，它会被当成「' + esc(capabilityOf(p.type)) + '」的 agent';
+      // G class: the cheap check only proves the binary exists - run one real
+      // roundtrip so a dead model path (proxy down, key expired) shows NOW,
+      // not as a mystery 502 on the first message.
+      if (ok && p.type === 'G' && p.deep) {
+        html += p.deep.ok
+          ? ' · 模型通路 <b>✅ 通</b>（' + (p.deep.ms / 1000).toFixed(1) + 's）'
+          : ' · 模型通路 <b>❌ 不通</b>：' + esc(String(p.deep.note || '').slice(0, 80));
+        hint.className = 'wiz-probe ' + (p.deep.ok ? 'ok' : 'warn');
+      }
+      hint.innerHTML = html;
     } catch { hint.textContent = ''; }
   }
   async function wizOnboardDiscovered() {

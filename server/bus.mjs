@@ -46,6 +46,16 @@ export function dropAdapter(agentId) {
 // lives in the knowledge base (L2) and comes back in via the recall pipe.
 const CTX_BUDGET_DEFAULT = 12000;
 
+// Last context-reset marker (`/clear`). Everything before it is dead history:
+// the user said so, so neither buildContext nor peerLines may feed it back.
+function ctxStart(conv) {
+  for (let i = conv.messages.length - 1; i >= 0; i--) {
+    const m = conv.messages[i];
+    if (m && m.meta && m.meta.ctxReset) return i + 1;
+  }
+  return 0;
+}
+
 export function buildContext(conv, agentId, agents, budget = CTX_BUDGET_DEFAULT, drops = null) {
   const nameOf = (id) => (agents.find((a) => a.id === id) || { name: id }).name;
   const out = [];
@@ -64,7 +74,7 @@ export function buildContext(conv, agentId, agents, budget = CTX_BUDGET_DEFAULT,
     blockTs.push(bufTs);
     buf.length = 0; bufTs = 0;
   };
-  for (const m of conv.messages) {
+  for (const m of conv.messages.slice(ctxStart(conv))) {
     const text = m.text || m.content || '';
     if (m.sender === 'user') { flush(); out.push({ role: 'user', content: text }); blockTs.push(m.ts || 0); }
     // Consensus frames (round / conclusion banners) and task order cards are
@@ -114,7 +124,7 @@ function peerLines(conv, agentId, agents, limit = 10, budget = 2000) {
   const nameOf = (id) => (agents.find((a) => a.id === id) || { name: id }).name;
   const out = [];
   let used = 0;
-  for (let i = conv.messages.length - 1; i >= 0 && out.length < limit; i--) {
+  for (let i = conv.messages.length - 1; i >= ctxStart(conv) && out.length < limit; i--) {
     const m = conv.messages[i];
     if (m.sender !== 'agent' || m.agentId === agentId) continue;
     const line = `${nameOf(m.agentId)}: ${String(m.text || '').replace(/\s+/g, ' ').trim()}`;

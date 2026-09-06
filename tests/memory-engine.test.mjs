@@ -43,6 +43,36 @@ test('L0 budget: everything kept while under budget', () => {
   assert.equal(ctx.length, 2);
 });
 
+test('ctxReset: /clear marker cuts everything before it out of model context', () => {
+  const msgs = [
+    { sender: 'user', text: '测试噪音PONG' },
+    { sender: 'agent', agentId: 'a1', text: 'PONG' },
+    { sender: 'system', text: '—— 上下文已重置 ——', ts: 1, meta: { ctxReset: true } },
+    { sender: 'user', text: '正式问题' },
+    { sender: 'agent', agentId: 'a2', text: '正式回答' },
+    { sender: 'user', text: '第二个问题' },
+  ];
+  const ctx = buildContext(convOf(msgs), 'a1', agents, 12000);
+  const joined = ctx.map((m) => m.content).join('\n');
+  assert.ok(!joined.includes('PONG'), 'pre-reset noise must not reach the model');
+  assert.ok(joined.includes('正式问题'), 'post-reset history survives');
+  assert.ok(joined.includes('第二个问题'), 'the turn being answered survives');
+});
+
+test('ctxReset: only the LAST marker wins; peerLines source is bus-internal', () => {
+  const msgs = [
+    { sender: 'user', text: '第一批噪音' },
+    { sender: 'system', text: '重置一', ts: 1, meta: { ctxReset: true } },
+    { sender: 'user', text: '第二批噪音' },
+    { sender: 'system', text: '重置二', ts: 2, meta: { ctxReset: true } },
+    { sender: 'user', text: '现在的正事' },
+  ];
+  const ctx = buildContext(convOf(msgs), 'a1', agents, 12000);
+  const joined = ctx.map((m) => m.content).join('\n');
+  assert.ok(!joined.includes('第二批噪音'), 'older reset markers are also context, so they are cut too');
+  assert.ok(joined.includes('现在的正事'));
+});
+
 test('distill: whole-conversation digest covers seats, asks, artifacts', () => {
   const conv = convOf([
     { sender: 'user', text: '帮我们评估一下要不要上 CI' },

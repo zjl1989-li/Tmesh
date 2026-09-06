@@ -9,7 +9,7 @@ import os from 'node:os';
 import { store } from './store.mjs';
 import { dispatch, probeAgent, isRunning, dropAdapter, runConsensus, setHeadSink, setUsageSink } from './bus.mjs';
 import { getStatus, allStatus, onStatus, setStatus, abort } from './runtime.mjs';
-import { describeProbe, warmPlugins, listPlugins } from './adapters.mjs';
+import { describeProbe, warmPlugins, listPlugins, createAdapter } from './adapters.mjs';
 import { getCurrentVersion, checkLatest, applyUpdate, restartSelf } from './updater.mjs';
 import { createKnowledge } from './memory/knowledge.mjs';
 import { createSkills } from './memory/skills.mjs';
@@ -1070,7 +1070,14 @@ async function handleApi(req, res, url) {
   // class achat would auto-select (so the UI can suggest it before saving).
   if (method === 'POST' && url.pathname === '/api/agents/probe') {
     const b = await readBody(req);
-    return sendJson(res, 200, describeProbe(b));
+    const out = describeProbe(b);
+    // deep:true + a G-class config -> one real CLI roundtrip. This is what
+    // catches "binary exists but the model path behind it is dead".
+    if (b.deep && out.type === 'G') {
+      const ad = createAdapter({ id: 'probe-deep', name: 'probe-deep', config: b.config || {} });
+      if (ad && typeof ad.deepPing === 'function') out.deep = await ad.deepPing();
+    }
+    return sendJson(res, 200, out);
   }
   if (method === 'PATCH' && parts[1] === 'agents' && parts[2]) {
     const b = await readBody(req);
@@ -1251,6 +1258,16 @@ async function handleApi(req, res, url) {
         recall: kbRecall, onConclusion: distillConclusion,
       }).catch((e) => console.error('consensus error', e.message));
       return sendJson(res, 200, { ok: true, note: '协商已启动', topic });
+    }
+    // Slash command: reset group context. Pushes a marker message; everything
+    // before it stops being fed to agents (see bus.ctxStart). Not a deletion -
+    // the transcript stays visible in the UI, only model context is cut.
+    if (text === '/clear' || text.startsWith('/clear ')) {
+      const msg = { id: uid(), sender: 'system', text: '—— 上下文已重置：此前的聊天不再喂给群成员 ——', meta: { ctxReset: true }, ts: Date.now() };
+      c.messages.push(msg);
+      store.save();
+      broadcast(c.id, 'message', msg);
+      return sendJson(res, 200, msg);
     }
     const msg = { id: uid(), sender: 'user', text, ts: Date.now() };
     c.messages.push(msg);
