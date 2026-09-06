@@ -393,6 +393,12 @@ body.light .modal { background: rgba(18,24,46,.32); }
 .member-row:hover { background: var(--panel2); }
 .member-row input { width: 16px; height: 16px; }
 .member-row .mname { font-size: 13px; }
+.member-check { display: flex; align-items: center; gap: 9px; flex: 1; min-width: 0; cursor: pointer; }
+/* capability kind badge (谋 = advisor / 执 = executor) */
+.ac-cap.cap-adv { color: var(--muted); }
+.ac-cap.cap-exec { color: var(--accent2); border-color: color-mix(in srgb, var(--accent2) 45%, transparent); background: color-mix(in srgb, var(--accent2) 12%, transparent); }
+/* per-group role select in group settings */
+.role-sel { flex: none; width: 74px; padding: 4px 6px; font-size: 11.5px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--panel3); color: var(--text); cursor: pointer; }
 .delegate-row { border: 1px dashed var(--border); border-radius: var(--r-md); margin: 10px 0 14px; align-items: flex-start; cursor: pointer; }
 .delegate-row input { margin-top: 2px; }
 .delegate-row b { display: block; font-weight: 400; font-size: 10.5px; color: var(--muted); opacity: .8; margin-top: 2px; }

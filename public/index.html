@@ -200,8 +200,14 @@
     <div class="modal-box">
       <div class="modal-head">群设置 <button id="closeGroup" class="icon-x" title="关闭"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4.2 4.2l7.6 7.6M11.8 4.2l-7.6 7.6"/></svg></button></div>
       <div class="field"><label>群名称</label><input id="grpNameInput" type="text" /></div>
-      <div class="section-label" style="padding-left:0">成员 agent（勾选进群）</div>
+      <div class="section-label" style="padding-left:0">成员 agent（勾选进群，下拉设定群内角色）</div>
       <div id="groupMembers" class="group-members"></div>
+      <div class="field"><label>执行审批（派工单是否需要你批准后才执行）</label>
+        <select id="grpApproval" title="按群开关：能操作本地电脑的群建议「执行前审批」">
+          <option value="before" selected>执行前审批（推荐）</option>
+          <option value="after">执行后验收</option>
+        </select>
+      </div>
       <div id="delegateSlot"></div>
       <div class="modal-foot">
         <button id="btnSaveGroup" class="primary">保存</button>
@@ -240,8 +246,14 @@
     <div class="pop-body" id="ac-body">
       <label>名称</label><input id="ac-in-name" type="text" />
       <div class="cap-row">能力：<span id="ac-cap" class="ac-cap">—</span></div>
+      <label>能力类型</label>
+      <select id="ac-in-kind" title="参谋：无本地操作能力，分析出谋划策；执行：可操作本地电脑">
+        <option value="advisor">参谋（无本地操作）</option>
+        <option value="executor">执行（可操作本地）</option>
+      </select>
       <label>模型</label><input id="ac-in-model" type="text" />
       <label>角色 / 说明</label><input id="ac-in-role" type="text" />
+      <label>能力档案（注释）</label><textarea id="ac-in-notes" rows="2" placeholder="擅长什么、适合当什么角色，协商时会作为参考注入"></textarea>
       <label>系统提示词</label><textarea id="ac-in-sys"></textarea>
     </div>
     <div class="pop-foot">

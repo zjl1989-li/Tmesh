@@ -361,6 +361,7 @@
     createGroup: (name, memberIds = []) => post('/groups', { name, memberIds }),
     renameGroup: (id, name) => patch('/conversations/' + id, { name }),
     setGroupMembers: (id, memberIds) => patch('/conversations/' + id, { memberIds }),
+    patchGroup: (id, p) => patch('/conversations/' + id, p),
     getHistory: (id) => req('/conversations/' + id + '/history'),
     openArchive: () => post('/archive/open', {}),
     async archiveGroup(id) {
@@ -1917,19 +1918,28 @@
   }
 
   // ---------------- MODAL: group settings ----------------
+  const ROLE_LABELS = [['commander', '指挥'], ['executor', '执行'], ['reviewer', '审核'], ['advisor', '参谋']];
   async function openGroupModal(id) {
     const g = await api.getGroup(id);
     $('#grpNameInput').value = g.name;
     const [settings] = await Promise.all([api.getSettings()]);
     const slot = $('#delegateSlot'); if (slot) { slot.innerHTML = ''; slot.appendChild(delegationRow(settings)); }
+    // approval gate (batch C): ask before executing vs accept-then-review
+    const appr = $('#grpApproval');
+    if (appr) appr.value = g.approval === 'after' ? 'after' : 'before';
     const box = $('#groupMembers'); box.innerHTML = '';
     const agents = await api.listAgents();
     agents.forEach((a) => {
-      const row = document.createElement('label'); row.className = 'member-row';
       const checked = (g.memberIds || []).includes(a.id) ? 'checked' : '';
-      row.innerHTML = `<input type="checkbox" data-id="${a.id}" ${checked}/>
-        ${avHtml(a)}<span class="mname">${esc(a.name)}</span>
-        <span class="ac-cap ${capClass(a.adapterType)}" style="margin-left:auto">${capabilityOf(a.adapterType)}</span>`;
+      const isExec = a.kind === 'executor' || a.adapterType === 'A' || a.adapterType === 'C';
+      const kindBadge = `<span class="ac-cap ${isExec ? 'cap-exec' : 'cap-adv'}" title="${isExec ? '可操作本地电脑' : '无本地操作能力'}">${isExec ? '执' : '谋'}</span>`;
+      const roleSel = ROLE_LABELS.map(([v, l]) =>
+        `<option value="${v}" ${g.memberRoles && g.memberRoles[a.id] === v ? 'selected' : ''}>${l}</option>`).join('');
+      const row = document.createElement('div'); row.className = 'member-row';
+      row.innerHTML = `<label class="member-check"><input type="checkbox" data-id="${a.id}" ${checked}/>
+        ${avHtml(a)}<span class="mname">${esc(a.name)}</span></label>
+        ${kindBadge}
+        <select class="role-sel" data-id="${a.id}" title="群内角色（可随时临时调换）">${roleSel}</select>`;
       box.appendChild(row);
     });
     $('#groupModal').dataset.gid = id;
@@ -1953,6 +1963,8 @@
     $('#ac-status').className = 'pop-status ' + (s === 'idle' ? 'online' : s === 'offline' ? 'offline' : 'running');
     $('#ac-status-text').textContent = ST_LABEL[s];
     $('#ac-in-name').value = a.name;
+    $('#ac-in-kind').value = a.kind === 'executor' ? 'executor' : 'advisor';
+    $('#ac-in-notes').value = a.notes || '';
     $('#ac-cap').textContent = capabilityOf(a.adapterType);
     $('#ac-cap').className = 'ac-cap ' + capClass(a.adapterType);
     $('#ac-in-model').value = a.model; $('#ac-in-role').value = a.role; $('#ac-in-sys').value = a.system;
@@ -1963,7 +1975,7 @@
     let top = r.bottom + 6; if (top + h > window.innerHeight) top = Math.max(12, r.top - h - 6);
     pop.style.left = Math.max(12, left) + 'px'; pop.style.top = top + 'px';
     $('#ac-save').onclick = async () => {
-      await api.updateAgent(id, { name: $('#ac-in-name').value, model: $('#ac-in-model').value, role: $('#ac-in-role').value, system: $('#ac-in-sys').value });
+      await api.updateAgent(id, { name: $('#ac-in-name').value, model: $('#ac-in-model').value, role: $('#ac-in-role').value, system: $('#ac-in-sys').value, kind: $('#ac-in-kind').value, notes: $('#ac-in-notes').value });
       pop.classList.add('hidden'); if (curGroupId) selectGroup(curGroupId);
     };
     $('#ac-dm').onclick = async () => { const dm = await api.openDM(id); pop.classList.add('hidden'); await selectGroup(dm.id); };
@@ -2060,8 +2072,11 @@
     const id = $('#groupModal').dataset.gid;
     const name = $('#grpNameInput').value.trim();
     const ids = $$('#groupMembers input[type=checkbox]').filter((c) => c.checked).map((c) => c.dataset.id);
+    const memberRoles = {};
+    $$('#groupMembers .role-sel').forEach((s) => { if (ids.includes(s.dataset.id)) memberRoles[s.dataset.id] = s.value; });
+    const approval = $('#grpApproval') ? $('#grpApproval').value : 'before';
     if (name) await api.renameGroup(id, name);
-    await api.setGroupMembers(id, ids);
+    await api.patchGroup(id, { memberIds: ids, memberRoles, approval });
     $('#groupModal').classList.add('hidden');
     await selectGroup(id);
   };

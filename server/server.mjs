@@ -15,6 +15,7 @@ import { createKnowledge } from './memory/knowledge.mjs';
 import { createSkills } from './memory/skills.mjs';
 import { createAcl } from './memory/acl.mjs';
 import { distillConv, distillMessage } from './memory/distill.mjs';
+import { guessKind, guessRole, ensureRoles } from './roles.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -1040,6 +1041,10 @@ async function handleApi(req, res, url) {
       model: b.model || (b.config && b.config.model) || 'deepseek-chat',
       adapterType: type,
       avatar: b.avatar || '',
+      // Batch A: capability kind + free-text dossier. Guessed from the adapter
+      // class unless the caller pins one.
+      kind: b.kind || guessKind({ adapterType: type, config: { adapterType: type } }),
+      notes: b.notes || '',
       config: { ...(b.config || {}), adapterType: type },
     };
     store.upsertAgent(a);
@@ -1093,12 +1098,18 @@ async function handleApi(req, res, url) {
     const list = store.getConversations().map((c) => ({
       id: c.id, type: c.type, name: c.name, agentId: c.agentId,
       memberIds: c.memberIds || [], status: c.status || 'active', count: c.messages.length,
+      stage: c.stage || 'idle', memberRoles: c.memberRoles || {},
     }));
     return sendJson(res, 200, list);
   }
   if (method === 'POST' && url.pathname === '/api/groups') {
     const b = await readBody(req);
     const c = { id: uid(), type: 'group', name: b.name || '新群', memberIds: b.memberIds || [], messages: [], artifacts: [] };
+    // Batch A: auto-tag member roles on group creation (executor-kind members
+    // -> executor, the rest -> advisor). User re-assigns in group settings.
+    ensureRoles(c, store.getAgents());
+    c.stage = 'idle';                    // project stage engine (batch B)
+    c.approval = 'before';               // task approval gate (batch C)
     return sendJson(res, 200, store.upsertConversation(c));
   }
   if (method === 'PATCH' && parts[1] === 'conversations' && parts[2]) {
@@ -1107,6 +1118,14 @@ async function handleApi(req, res, url) {
     const b = await readBody(req);
     if (b.name !== undefined) c.name = b.name;
     if (b.memberIds !== undefined) c.memberIds = b.memberIds;
+    // Batch A: per-group member roles (temporary swap is just a PATCH) and the
+    // task-approval gate. Roles are re-ensured after a membership change so a
+    // newcomer gets an auto tag and a leaver's role is dropped.
+    if (b.memberRoles !== undefined && b.memberRoles && typeof b.memberRoles === 'object') {
+      c.memberRoles = { ...(c.memberRoles || {}), ...b.memberRoles };
+    }
+    if (b.approval !== undefined) c.approval = (b.approval === 'after') ? 'after' : 'before';
+    if (b.memberIds !== undefined) ensureRoles(c, store.getAgents());
     if (b.status !== undefined) {
       const wasArchived = c.status === 'archived';
       c.status = b.status;
