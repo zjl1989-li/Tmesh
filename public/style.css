@@ -861,3 +861,10 @@ body.drawer-open #resRight { display: block; }
 .about-msg { flex: 1; min-width: 0; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .about-msg a { color: var(--accent); text-decoration: none; }
 .about-msg a:hover { text-decoration: underline; }
+
+/* dispatch toggle (#btnTaskMode): labeled pill, unmistakable on/off states.
+   Off = dashed outline + normal text (plain Q&A chat); On = solid accent fill
+   (work orders armed). Appended last so it beats the duplicated composer blocks. */
+.composer-bar #btnTaskMode { gap: 5px; padding: 0 10px; font-size: 12px; color: var(--text); border: 1px dashed var(--border); background: transparent; }
+.composer-bar #btnTaskMode:hover { color: var(--accent, #f0997b); border-color: var(--accent, #f0997b); background: color-mix(in srgb, var(--accent, #f0997b) 8%, transparent); }
+.composer-bar #btnTaskMode.active { color: #fff; border: 1px solid var(--accent, #f0997b); background: var(--accent, #f0997b); }

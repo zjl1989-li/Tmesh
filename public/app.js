@@ -673,7 +673,6 @@
     renderStageBar(g);
     taskMode = false;
     const tmBtn = $('#btnTaskMode'); if (tmBtn) tmBtn.classList.remove('active');
-    renderTaskBar(g);
     renderGroups();
   }
 
@@ -2240,11 +2239,12 @@
   // 发送对象下拉：按当前选中项收窄宽度
   $('#sendTarget').addEventListener('change', () => {
     fitSendTarget();
-    // Boss's default: picking an executor-capable member IS dispatch mode.
-    // Selecting a model member or @all silently leaves it - a manual toggle
-    // is still available for chatting with an executor without a work order.
+    // Boss's rule: the dispatch BUTTON is the only way into work orders.
+    // With it off, @-ing an executor-capable member is plain Q&A chat. If a
+    // work order is armed and the user switches to a non-executor target
+    // (model member or @all), silently disarm - dispatch needs one executor.
     const { a, roles } = currentTargetAgent();
-    setTaskMode(!!a && execCapable(a, roles));
+    if (taskMode && !(a && execCapable(a, roles))) setTaskMode(false);
   });
   // 主题切换：body.light 与深色主题互切，localStorage 记忆选择
   function syncThemeBtn() {
@@ -2508,16 +2508,6 @@
     const a = id ? findAgent(id) : null;
     return { a, roles: g.memberRoles || {} };
   }
-  function renderTaskBar(g) {
-    const bar = $('#taskBar'), hint = $('#taskHint');
-    if (!bar || !hint) return;
-    bar.classList.toggle('hidden', !taskMode);
-    if (!taskMode) return;
-    const { a } = currentTargetAgent();
-    hint.textContent = a
-      ? `任务将以派工单独占分派给 @${a.name}，其他人不抢活`
-      : '任务将以派工单形式独占分派';
-  }
   function setTaskMode(on) {
     if (on) {
       const { a, roles } = currentTargetAgent();
@@ -2530,12 +2520,13 @@
     const tmBtn = $('#btnTaskMode');
     if (tmBtn) {
       tmBtn.classList.toggle('active', on);
-      tmBtn.title = on ? '派工模式已开启（再点一次退出）' : '派工模式：把这条消息变成派工单，独占分派给一个执行 agent（一个活只让一个 agent 干）';
+      tmBtn.title = on
+        ? '派工模式已开启：消息将生成派工单，独占分派（再点一次退出，回到问答聊天）'
+        : '派工开关（当前关闭）：关闭时 @ 可操作成员仅问答聊天，不会执行本地操作；开启后消息变成派工单，独占分派给选中的执行 agent';
     }
-    if (curGroupData) renderTaskBar(curGroupData);
     $('#input').placeholder = on
       ? '描述要执行的任务（将生成派工单，独占分派）…'
-      : '输入消息 / 分配任务给群内 agent…（Enter 发送，Shift+Enter 换行）';
+      : '输入消息，@ 成员问答聊天…（要派单先点右侧派工按钮；Enter 发送，Shift+Enter 换行）';
   }
 
   // ---------------- stage engine UI (batch B) ----------------
