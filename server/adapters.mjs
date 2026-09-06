@@ -1695,9 +1695,13 @@ export class CliAdapter {
     }
     if (onEvent) onEvent({ kind: 'step', step: `CLI ${this.cliCmd} 处理中…` });
 
+    // stdin must be 'pipe' + immediately closed: codex exec (and similar CLIs)
+    // block forever waiting for stdin EOF. 'ignore' on Windows leaves the child
+    // hanging on a dead handle; an explicitly ended pipe delivers a clean EOF.
     let child;
     try {
-      child = spawn(cmd, args, { cwd: this.cwd, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+      child = spawn(cmd, args, { cwd: this.cwd, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+      child.stdin.end('');
     } catch (e) { return { text: `[${this.agent.name}] 无法启动 CLI：${e.message}` }; }
     this._child = child;
     let out = '', err = '';
