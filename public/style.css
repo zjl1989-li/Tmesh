@@ -6,24 +6,32 @@
    body.light overrides the palette. */
 :root {
   --font: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
-  --font-mono: ui-monospace, "Cascadia Code", Consolas, "SF Mono", monospace;
+  /* display face: Bahnschrift ships with Win10/11 (DIN-flavoured, zero network
+     cost - fits an offline-first local tool). Latin/digits only; CJK falls
+     through to the body stack. */
+  --font-display: Bahnschrift, "Segoe UI", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: "Cascadia Code", ui-monospace, Consolas, "SF Mono", monospace;
 
-  --bg: #0f1117; --panel: #161a23; --panel2: #1d2230; --panel3: #252b3b;
-  --border: #2a3142; --text: #e6e9ef; --muted: #8b94a7;
-  --accent: #4f8cff; --accent-hover: #3d7bf0; --accent-soft: #1e3a5f; --accent-weak: rgba(79,140,255,.16); --accent2: #22c55e;
-  --user: #3b6fd4; --danger: #ef4444; --warn: #fbbf24;
-  --user-bubble: #2b4a80; --traffic-housing: #0b0e14; --avatar-ink: #0f1117;
+  /* graphite control-room palette + a single amber signal colour (60/30/10).
+     Amber = the one accent; green/red/yellow stay reserved for STATUS only. */
+  --bg: #101216; --panel: #15181e; --panel2: #1b1f27; --panel3: #242a35;
+  --border: #2b313d; --text: #e9e7e2; --muted: #9198a5;
+  --accent: #e8a35c; --accent-hover: #f2b576; --accent-soft: #3a2c19; --accent-weak: rgba(232,163,92,.16); --accent2: #22c55e;
+  --accent-ink: #241708; /* text stamped ON an accent fill (~8:1, white fails) */
+  --user: #b0763a; --danger: #ef4444; --warn: #fbbf24;
+  --user-bubble: #6f4a1d; --traffic-housing: #0b0c10; --avatar-ink: #101216;
   /* radius scale: 3 tiers + pill (unifies the previous 10 ad-hoc values) */
   --r-sm: 6px; --r-md: 8px; --r-lg: 14px; --r-pill: 999px;
-  /* elevation: theme-aware popover shadow */
-  --shadow-pop: 0 16px 48px rgba(0,0,0,.45);
+  /* elevation: theme-aware popover shadow (2-tier, cool black) */
+  --shadow-pop: 0 2px 8px rgba(0,0,0,.35), 0 24px 64px rgba(0,0,0,.5);
 }
 body.light {
-  --bg: #f4f6fb; --panel: #ffffff; --panel2: #eef1f7; --panel3: #e3e7f0;
-  --border: #d6dae6; --text: #1f2430; --muted: #64748b;
-  --accent: #3b6fd4; --accent-hover: #2f5cb8; --accent-soft: #dce8ff; --accent-weak: rgba(59,111,212,.16); --accent2: #16a34a;
-  --user: #3b6fd4; --danger: #dc2626; --warn: #d97706;
-  --user-bubble: #232833; --traffic-housing: #e6eaf2; --avatar-ink: #0f1117;
+  --bg: #f6f4ef; --panel: #fcfbf8; --panel2: #f0ede6; --panel3: #e6e2d7;
+  --border: #ddd7ca; --text: #26241f; --muted: #7b776c;
+  --accent: #a8621f; --accent-hover: #8f5218; --accent-soft: #f3e4cd; --accent-weak: rgba(168,98,31,.14); --accent2: #16a34a;
+  --accent-ink: #fdf9f2; /* copper fills are dark enough for near-white text */
+  --user: #a8621f; --danger: #dc2626; --warn: #d97706;
+  --user-bubble: #2e2a22; --traffic-housing: #e9e5db; --avatar-ink: #0f1117;
   --shadow-pop: 0 4px 16px rgba(15,23,42,.10), 0 1px 2px rgba(15,23,42,.06);
 }
 html, body { height: 100%; }
@@ -34,9 +42,9 @@ body {
 /* keyboard accessibility: visible focus ring on all interactive elements */
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 textarea:focus-visible, input:focus-visible, select:focus-visible { outline: none; } /* text fields show caret + composer glow instead */
-/* message entrance: subtle rise-in (0.22s, transform+opacity only) */
+/* message entrance: subtle rise-in with a long ease-out tail (transform+opacity only) */
 @media (prefers-reduced-motion: no-preference) {
-  .msg { animation: msgIn .22s ease both; }
+  .msg { animation: msgIn .26s cubic-bezier(.16,1,.3,1) both; }
 }
 @keyframes msgIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 /* form controls do not inherit font-family by default in Chromium - force the
@@ -321,7 +329,7 @@ body.light .theme-toggle .tt-sun { background: var(--accent-soft); color: var(--
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,.55); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 50; animation: fadeIn .18s ease; }
 .modal.hidden { display: none; }
 body.light .modal { background: rgba(18,24,46,.32); }
-.modal-box { width: 520px; max-width: 92vw; max-height: 84vh; overflow-y: auto; background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 20px 18px; box-shadow: var(--shadow-pop); animation: popIn .2s ease; }
+.modal-box { width: 520px; max-width: 92vw; max-height: 84vh; overflow-y: auto; background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 20px 18px; box-shadow: var(--shadow-pop); animation: popIn .24s cubic-bezier(.16,1,.3,1); }
 #settingsModal .modal-box { width: 640px; }
 .modal-head { display: flex; justify-content: space-between; align-items: center; font-size: 15px; font-weight: 500; margin-bottom: 14px; }
 .modal-head button { background: none; border: none; color: var(--muted); cursor: pointer; padding: 2px 6px; border-radius: var(--r-sm); }
@@ -868,3 +876,76 @@ body.drawer-open #resRight { display: block; }
 .composer-bar #btnTaskMode { gap: 5px; padding: 0 10px; font-size: 12px; color: var(--text); border: 1px dashed var(--border); background: transparent; }
 .composer-bar #btnTaskMode:hover { color: var(--accent, #f0997b); border-color: var(--accent, #f0997b); background: color-mix(in srgb, var(--accent, #f0997b) 8%, transparent); }
 .composer-bar #btnTaskMode.active { color: #fff; border: 1px solid var(--accent, #f0997b); background: var(--accent, #f0997b); }
+
+/* ================= premium pass: control-room identity =================
+   Direction: industrial utilitarian. Graphite surfaces, ONE amber signal
+   colour, DIN-flavoured display face (Bahnschrift, local Win10/11 font),
+   Cascadia Code for data. Everything below is token-driven - revert = swap
+   the :root accent tokens back. Appended last so it wins the cascade over
+   the duplicated composer blocks above. */
+
+/* --- orchestrated entrance: rails rise in sequence (L -> C -> R) --- */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes railIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  #left   { animation: railIn .5s cubic-bezier(.16,1,.3,1) both; }
+  #center { animation: railIn .5s cubic-bezier(.16,1,.3,1) .08s both; }
+  #right  { animation: railIn .5s cubic-bezier(.16,1,.3,1) .16s both; }
+}
+
+/* --- atmosphere: two low-power radial glows breathe behind the chat column.
+     #center is position:relative + overflow:hidden, so this stays contained;
+     children lift above it via z-index. */
+#center::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(52rem 34rem at 14% -8%, rgba(232,163,92,.09), transparent 62%),
+    radial-gradient(44rem 30rem at 104% 112%, rgba(93,118,171,.10), transparent 58%);
+}
+#chatHead, .messages, .composer { position: relative; z-index: 1; }
+body.light #center::before {
+  /* light theme: the blue counter-glow reads as a shadow stain on warm paper -
+     keep only a whisper of amber and let the paper carry itself */
+  background: radial-gradient(52rem 34rem at 14% -8%, rgba(168,98,31,.04), transparent 62%);
+}
+/* film grain: fixed feTurbulence tile over everything (pointer-events none,
+   4-5% opacity) - kills the flat-void feel of large dark surfaces */
+body::after {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 90;
+  opacity: .05; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+body.light::after { opacity: .03; }
+
+/* --- typography: display face on UI chrome; mono on all data text --- */
+#chatHead .title, .modal-head, .right-head, .pop-name, .ac-name,
+.section-label, .ov-card .num, .left-head button { font-family: var(--font-display); letter-spacing: .01em; }
+.tool-row, .bubble code, .bubble pre code, .art-missing code, .tree-path,
+.bubble .path-chip, .wc-path, .h-md, .msg .who .time, .about-ver { font-family: var(--font-mono); }
+
+/* --- accent fills get INK text, not white (amber is too light for #fff) --- */
+.left-head button, .composer-bar #btnSend, .composer-bar #btnTaskMode.active,
+.modal-foot button.primary, .pop-foot button.primary, .wbtn.primary,
+.wiz-modes .wm-btn.on, .reg-sort-btn.on, #brGo, .about-btn.apply:hover,
+.lib-save:hover, .browser-bar .bbtn:hover, .tree-head .tbtn:hover,
+.space-item .act:hover, .plus-menu button:hover { color: var(--accent-ink); }
+/* primary actions: subtle top-lit gradient + tactile press */
+.left-head button, .composer-bar #btnSend, .modal-foot button.primary,
+.pop-foot button.primary, .wbtn.primary, .composer-bar #btnTaskMode.active {
+  background: linear-gradient(180deg, color-mix(in srgb, #fff 9%, var(--accent)), var(--accent));
+  border-color: transparent;
+}
+.left-head button:active, .composer-bar #btnSend:active, .modal-foot button.primary:active,
+.pop-foot button.primary:active, .wbtn.primary:active, .composer-bar #btnTaskMode:active {
+  transform: translateY(1px);
+}
+
+/* --- surfaces: hairline sheen on floating layers, deepened focus glow --- */
+.modal-box, .popover, .task-pop, .lib-flyout {
+  background: linear-gradient(180deg, color-mix(in srgb, #fff 2.5%, var(--panel)), var(--panel));
+}
+.composer-box:focus-within { box-shadow: 0 0 0 3px var(--accent-weak), 0 12px 32px rgba(0,0,0,.28); }
+
+/* --- active group row: amber wash leading into the inset signal bar --- */
+.group-item.active {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 10%, var(--panel2)), var(--panel2));
+}
