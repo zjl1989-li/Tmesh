@@ -289,15 +289,42 @@ export async function controlDeliberation(conv, agents, action, payload, { emit,
     const ok = !!(payload && payload.ok);
     if (ok) {
       setStage(conv, 'execute', emit, persist);
-      sysMsg(conv, emit, persist, '用户已确认方案，进入执行阶段。指挥角色可以开始派发执行任务。', { deliberation: 'confirmed' });
-    } else {
-      setStage(conv, 'discuss', emit, persist);
-      sysMsg(conv, emit, persist, '用户打回了方案。' + (payload && payload.note ? `用户意见：${payload.note}` : '请根据用户意见重新商议。'), { deliberation: 'rejected' });
+      sysMsg(conv, emit, persist, '用户已确认方案，进入执行阶段。', { deliberation: 'confirmed' });
+      conv.deliberation.active = false;
+      controls.delete(conv.id);
+      persist();
+      // Commander kickoff (boss's design): after the user confirms, the
+      // commander proposes the first batch of work orders via 【派单】
+      // markers; every proposal lands in pending_approval - the user stays
+      // the sole approver. Fire-and-forget: the HTTP reply must not block on
+      // an agent turn.
+      const commander = memberWithRole(conv, agents, 'commander');
+      if (commander) {
+        sysMsg(conv, emit, persist, [
+          `[指挥开工] 指挥 ${commander.name} 请根据最终方案提出第一批派工单提案。`,
+          '格式：每条以【派单】开头写明任务，可注明「执行：成员名」。提案须经用户审批后才会执行。',
+        ].join('\n'), { deliberation: 'commander-kickoff' });
+        (async () => {
+          try {
+            const ts = Date.now();
+            await dispatch({
+              conv, agents, toAgentId: commander.id, emit, persist, recordTool,
+              settings: { ...settings, delegation: false }, recall,
+            });
+            proposeFromReply(conv, agents, lastReplyOf(conv, commander.id, ts), commander.id, { emit, persist });
+          } catch (e) {
+            console.error('[deliberation] commander kickoff failed:', e.message);
+          }
+        })();
+      }
+      return { ok: true, note: '已确认，进入执行' };
     }
+    setStage(conv, 'discuss', emit, persist);
+    sysMsg(conv, emit, persist, '用户打回了方案。' + (payload && payload.note ? `用户意见：${payload.note}` : '请根据用户意见重新商议。'), { deliberation: 'rejected' });
     conv.deliberation.active = false;
     controls.delete(conv.id);
     persist();
-    return { ok: true, note: ok ? '已确认，进入执行' : '已打回' };
+    return { ok: true, note: '已打回' };
   }
   if (action === 'adjudicate') {
     if (d.status !== 'stuck') return { ok: false, note: '协商不处于待裁决状态' };

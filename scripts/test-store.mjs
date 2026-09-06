@@ -82,12 +82,13 @@ const GOOD = JSON.stringify({
 // --- good file: the happy path must not regress ------------------------------
 {
   const s = sandbox(GOOD);
-  const { store } = await s.open();
+  const { store, DEFAULT_SETTINGS } = await s.open();
   check('good -> conversations loaded', store.getConversations().length, 1);
   check('good -> messages loaded', store.getConversation('c1').messages.length, 1);
   check('good -> agents loaded', store.getAgents().map((a) => a.id), ['a']);
   check('good -> toolStats loaded', store.toolStatsOf('a'), { read: 2 });
-  check('good -> settings loaded (not overwritten by defaults)', store.getSettings(), { delegation: true });
+  // user values win, new default knobs are merged in around them
+  check('good -> settings loaded (not overwritten by defaults)', store.getSettings(), { ...DEFAULT_SETTINGS, delegation: true });
   check('good -> revision loaded', store.getRevision(), 41);
   check('good -> no recovery notice', store.getRecovery(), null);
 }

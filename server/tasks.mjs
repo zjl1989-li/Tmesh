@@ -44,8 +44,21 @@ function findTask(conv, tid) {
   return (conv.tasks || []).find((t) => t.id === tid) || null;
 }
 
-/** Create a work order. Returns { task, error }. */
-export function createTask(conv, agents, { text, executorId }, { emit, persist }) {
+// Hard gate (boss's P0): the discuss/await-confirm stages mean the plan is
+// NOT user-approved yet, and a work order is an explicit local-operation
+// intent. DSH/bridge tools run inside their own processes where tmesh cannot
+// intercept them - the one door we fully control is order creation, so it is
+// shut here regardless of who knocks (user or commander proposal).
+const STAGE_LOCKED = new Set(['discuss', 'await_confirm']);
+
+/** Create a work order. Returns { task, error }.
+ *  opts.proposedBy: commander agent id - the order becomes a PROPOSAL that
+ *  always lands in pending_approval (user final approval), even in groups
+ *  whose approval switch is 'after'. */
+export function createTask(conv, agents, { text, executorId, proposedBy }, { emit, persist }) {
+  if (STAGE_LOCKED.has(conv.stage)) {
+    return { error: `当前处于「${conv.stage === 'discuss' ? '探讨' : '待确认'}」阶段（硬闸）：方案须经用户确认后才可开单` };
+  }
   if (!String(text || '').trim()) return { error: '任务内容不能为空' };
   // Resolve the executor: explicit pick wins, else the group's executor role,
   // else any executor-kind member (roles.mjs fallback).
@@ -63,18 +76,99 @@ export function createTask(conv, agents, { text, executorId }, { emit, persist }
     id: mid(),
     text: String(text).trim(),
     executorId: exec.id,
-    status: conv.approval === 'after' ? 'queued' : 'pending_approval',
+    // Commander proposals always wait for the user (final approval is the
+    // user's, no matter the group's approval switch). User-created orders
+    // follow the group switch as before.
+    status: (!proposedBy && conv.approval === 'after') ? 'queued' : 'pending_approval',
+    proposedBy: proposedBy || undefined,
     createdAt: Date.now(),
     seq: conv.tasks.length + 1,
   };
   conv.tasks.push(task);
   persist();
+  const srcLine = proposedBy
+    ? `来源：指挥（${nameOf(agents, proposedBy)}）提案 · 须经用户审批`
+    : conv.approval === 'after' ? '本群设置为执行后验收，已进入队列。' : '等待用户审批（本群设置为执行前审批）。';
   sysMsg(conv, emit, persist, [
     `派工单 #${task.seq}：${task.text}`,
     `执行：${exec.name} · 状态：${TASK_STATUS[task.status]}`,
-    conv.approval === 'before' ? '等待用户审批（本群设置为执行前审批）。' : '本群设置为执行后验收，已进入队列。',
-  ].join('\n'), { taskCard: task.id, taskStatus: task.status });
+    srcLine,
+  ].join('\n'), { taskCard: task.id, taskStatus: task.status, proposedBy: proposedBy || undefined });
   return { task };
+}
+
+// --- commander dispatch channel ----------------------------------------------
+// Format (told to the commander in its frames; explicit markers only, never
+// guessed):
+//   【派单】修复登录超时
+//   执行：DSH
+// or one line: 【派单】修复登录超时 → 执行：DSH
+const PROPOSE_RE = /【\s*派单\s*】\s*(.+)/g;
+const EXEC_NAME_RE = /执行(?:者)?\s*[:：]\s*([^\s，,。;；]+)/;
+
+/** Parse 【派单】 proposals out of a commander reply. Returns
+ *  [{ text, executorName }] - executorName may be '' (fall back to the
+ *  group's executor resolution). */
+export function parseDispatchProposals(text) {
+  const out = [];
+  const lines = String(text || '').split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    PROPOSE_RE.lastIndex = 0;
+    const m = PROPOSE_RE.exec(lines[i]);
+    if (!m) continue;
+    let body = m[1];
+    let executorName = '';
+    const em = EXEC_NAME_RE.exec(body);
+    if (em) {
+      executorName = em[1];
+      body = body.slice(0, em.index).trim();
+    } else {
+      // look at the next non-empty line for a standalone 执行：name
+      for (let j = i + 1; j < Math.min(i + 3, lines.length); j++) {
+        const t = lines[j].trim();
+        if (!t) continue;
+        const em2 = /^\s*执行(?:者)?\s*[:：]\s*(.+)$/.exec(t);
+        if (em2) { executorName = em2[1].trim(); i = j; }
+        break;
+      }
+    }
+    body = body.replace(/[→-]+\s*$/, '').trim();
+    if (body) out.push({ text: body, executorName: executorName.replace(/^@/, '') });
+  }
+  return out;
+}
+
+// Resolve an executor by name/id among group members (null = not found).
+function resolveExecutorByName(conv, agents, name) {
+  if (!name) return null;
+  const n = String(name).toLowerCase();
+  return (conv.memberIds || [])
+    .map((id) => agents.find((a) => a.id === id))
+    .find((a) => a && (String(a.name).toLowerCase() === n || a.id === n))?.id || null;
+}
+
+const MAX_PROPOSALS_PER_REPLY = 3;
+
+/** Turn a commander reply's 【派单】 proposals into pending-approval orders.
+ *  Deduped against existing pending/queued orders with the same text; a named
+ *  executor outside the group kills that proposal (never silently re-route). */
+export function proposeFromReply(conv, agents, reply, proposerId, { emit, persist }) {
+  const props = parseDispatchProposals(reply).slice(0, MAX_PROPOSALS_PER_REPLY);
+  const existing = new Set((conv.tasks || [])
+    .filter((t) => ['pending_approval', 'queued', 'running'].includes(t.status))
+    .map((t) => t.text));
+  const created = [];
+  for (const p of props) {
+    if (existing.has(p.text)) continue;
+    const execId = resolveExecutorByName(conv, agents, p.executorName);
+    if (p.executorName && !execId) {
+      sysMsg(conv, emit, persist, `指挥提案的执行者「${p.executorName}」不在群里，该派单提案未创建。`, { proposedBy: proposerId });
+      continue;
+    }
+    const r = createTask(conv, agents, { text: p.text, executorId: execId || undefined, proposedBy: proposerId }, { emit, persist });
+    if (r.task) { created.push(r.task); existing.add(r.task.text); }
+  }
+  return created;
 }
 
 /** Approve a pending work order -> queued -> pump. */
@@ -241,12 +335,19 @@ async function runTask(conv, agents, task, depsIn) {
       verdict ? `审核结论（供参考，调度时请考虑是否需返工）：${verdict.replace(/\s+/g, ' ').slice(0, 800)}` : '',
       '',
       '请复盘流程与进度：目标是否达成、下一步安排建议（派新单 / 退回重做 / 交付用户验收）。用户拥有最终审批权；代码与安全质量以审核 lane 的结论为准，你不需要自行审查代码。',
+      '如需派新单，用【派单】提案：每条以【派单】开头写明任务，可注明「执行：成员名」。提案只是提案——须经用户审批后才会执行，你不能直接开单。',
     ].filter(Boolean).join('\n'), { taskReview: task.id, taskStatus: 'review', reviewLane: 'retro' });
+    const retroStarted = Date.now();
     try {
       await dispatch({
         conv, agents, toAgentId: commander.id, emit, persist, recordTool,
         settings: { ...settings, delegation: false }, recall,
       });
+      // Commander dispatch channel: explicit 【派单】 markers in the retro
+      // reply become pending-approval proposals. The user is still the only
+      // one who can set an order loose - this channel widens access to
+      // PROPOSING, not to execution.
+      proposeFromReply(conv, agents, lastReplyOf(conv, commander.id, retroStarted), commander.id, { emit, persist });
     } catch (e) {
       console.error('[tasks] commander review failed:', e.message);
     }
