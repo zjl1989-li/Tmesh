@@ -75,8 +75,8 @@ body.right-fold #right { flex-basis: 0; border-left: none; overflow: hidden; }
 .left-head button:hover { background: var(--accent-hover); }
 .section-label { font-size: 11px; color: var(--muted); padding: 6px 14px 4px; text-transform: uppercase; letter-spacing: .5px; }
 /* collapsible group-list header: chevron + title + count, click to fold */
-.section-head { display: flex; align-items: center; gap: 6px; padding: 6px 10px; margin: 2px 8px 5px; border-radius: var(--r-md); background: var(--panel2); border: 1px solid var(--border); cursor: pointer; user-select: none; }
-.section-head:hover { border-color: var(--accent); }
+.section-head { display: flex; align-items: center; gap: 6px; padding: 6px 10px; margin: 2px 8px 5px; border-radius: var(--r-md); background: transparent; border: 1px solid transparent; cursor: pointer; user-select: none; }
+.section-head:hover { background: var(--panel2); }
 .section-head .sec-chevron { display: inline-flex; color: var(--muted); transition: transform .15s; }
 .section-head .sec-title { font-size: 12px; font-weight: 500; color: var(--text); }
 .section-head .sec-count { font-size: 11px; color: var(--muted); margin-left: auto; font-variant-numeric: tabular-nums; }
@@ -232,10 +232,14 @@ body.light .theme-toggle .tt-sun { background: var(--accent-soft); color: var(--
 .right-head .hint { font-size: 11px; color: var(--muted); font-weight: 400; }
 .right-head .folder-btn { background: var(--panel2); border: 1px solid var(--border); color: var(--text); border-radius: var(--r-sm); width: 30px; height: 26px; cursor: pointer; font-size: 14px; line-height: 1; display: flex; align-items: center; justify-content: center; }
 .right-head .folder-btn:hover { border-color: var(--accent); color: var(--accent); }
-.space-tabs { display: flex; border-bottom: 1px solid var(--border); overflow-x: auto; }
-.stab { flex: 1; min-width: 46px; background: none; border: none; color: var(--muted); padding: 9px 4px; cursor: pointer; font-size: 12px; border-bottom: 2px solid transparent; white-space: nowrap; }
+/* tabs stacked vertically along the rail's left edge (boss: 层叠, not 平铺);
+   active state = left accent bar + tinted row instead of underline */
+.space-wrap { flex: 1 1 auto; min-height: 0; display: flex; }
+.space-tabs { flex: 0 0 62px; display: flex; flex-direction: column; border-right: 1px solid var(--border); overflow-y: auto; overflow-x: hidden; }
+.stab { flex: none; text-align: left; background: none; border: none; border-left: 2px solid transparent; color: var(--muted); padding: 9px 8px 9px 10px; cursor: pointer; font-size: 12px; white-space: nowrap; }
 .stab:hover { color: var(--text); }
-.stab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.stab.active { color: var(--accent); border-left-color: var(--accent); background: var(--panel2); }
+.space-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
 .space-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 9px; }
 /* artefacts render as a compact single-column list (icon + name), so a
    pane full of files doesn't turn into a wall of thumbnails */
@@ -812,8 +816,8 @@ body.drawer-open #resRight { display: block; }
 
 /* ================= 三库面板（左栏）：资料库 / 技能库 / 权限库 ================= */
 .lib-nav { display: flex; flex-direction: column; gap: 3px; margin: 2px 8px 8px; }
-.lib-row { display: flex; align-items: center; gap: 8px; padding: 7px 10px; font-size: 12px; color: var(--text); background: var(--panel2); border: 1px solid var(--border); border-radius: var(--r-md); cursor: pointer; text-align: left; font-family: inherit; transition: background .12s, border-color .12s; }
-.lib-row:hover, .lib-row.active { background: var(--panel3); border-color: var(--accent); }
+.lib-row { display: flex; align-items: center; gap: 8px; padding: 7px 10px; font-size: 12px; color: var(--text); background: transparent; border: 1px solid transparent; border-radius: var(--r-md); cursor: pointer; text-align: left; font-family: inherit; transition: background .12s; }
+.lib-row:hover, .lib-row.active { background: var(--panel2); }
 .lib-row .lr-ico { display: inline-flex; color: var(--muted); transition: color .12s; }
 .lib-row:hover .lr-ico, .lib-row.active .lr-ico { color: var(--accent); }
 .lib-row .lr-title { flex: 1; }

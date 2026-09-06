@@ -145,17 +145,21 @@
           <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M1.8 3.8h4.2L8 5.5h6.2v7.7H1.8z"/></svg>
         </button>
       </div>
-      <div class="space-tabs" id="spaceTabs">
-        <button class="stab active" data-tab="overview">概览</button>
-        <button class="stab" data-tab="file">文件</button>
-        <button class="stab" data-tab="image">图片</button>
-        <button class="stab" data-tab="media">音视频</button>
-        <button class="stab" data-tab="tree">代码树</button>
-        <button class="stab" data-tab="browser">浏览器</button>
-        <button class="stab" data-tab="history">上下文</button>
+      <div class="space-wrap">
+        <div class="space-tabs" id="spaceTabs">
+          <button class="stab active" data-tab="overview">概览</button>
+          <button class="stab" data-tab="file">文件</button>
+          <button class="stab" data-tab="image">图片</button>
+          <button class="stab" data-tab="media">音视频</button>
+          <button class="stab" data-tab="tree">代码树</button>
+          <button class="stab" data-tab="browser">浏览器</button>
+          <button class="stab" data-tab="history">上下文</button>
+        </div>
+        <div class="space-main">
+          <div id="spaceBody" class="space-body"></div>
+          <div id="artView" class="art-view hidden"></div>
+        </div>
       </div>
-      <div id="spaceBody" class="space-body"></div>
-      <div id="artView" class="art-view hidden"></div>
     </aside>
   </div>
 
