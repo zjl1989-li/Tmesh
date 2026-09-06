@@ -74,6 +74,12 @@
           <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="2.5" width="9" height="11" rx="1.5"/><line x1="2.5" y1="3" x2="2.5" y2="13"/></svg>
         </button>
         <div class="title" id="convTitle">选择一个群</div>
+        <span id="stageBadge" class="stage-badge hidden" title="项目阶段"></span>
+        <div id="delibBar" class="delib-bar hidden">
+          <button id="btnDelibPause" class="delib-btn" title="暂停：做完当前步骤后在检查点停下（进度保留）">暂停</button>
+          <button id="btnDelibResume" class="delib-btn hidden" title="从暂停的检查点继续（中断的轮次会重跑）">继续</button>
+          <button id="btnDelibStop" class="delib-btn danger" title="中止：立即掐断在途调用，进度保留，可改议题重开">中止</button>
+        </div>
         <div class="head-actions">
           <span class="avatars" id="memberAvatars"></span>
           <span class="ha-divider"></span>
@@ -219,13 +225,11 @@
   <!-- ============ MODAL: consensus / negotiation ============ -->
   <div id="consensusModal" class="modal hidden">
     <div class="modal-box">
-      <div class="modal-head">发起多 agent 协商 <button id="closeConsensus" class="icon-x" title="关闭"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4.2 4.2l7.6 7.6M11.8 4.2l-7.6 7.6"/></svg></button></div>
-      <div class="field"><label>议题</label><textarea id="csTopic" placeholder="要协商讨论的议题…（各 agent 将多轮交换立场直到达成共识）"></textarea></div>
-      <div class="field"><label>协商轮次（每轮各 agent 看到前几轮立场后再更新观点）</label>
-        <select id="csRounds"><option value="2">2 轮</option><option value="3" selected>3 轮</option><option value="4">4 轮</option><option value="5">5 轮</option></select></div>
+      <div class="modal-head">发起方案协商（三轮制） <button id="closeConsensus" class="icon-x" title="关闭"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4.2 4.2l7.6 7.6M11.8 4.2l-7.6 7.6"/></svg></button></div>
+      <div class="field"><label>议题</label><textarea id="csTopic" placeholder="要协商讨论的议题…（按产品开发流程：需求澄清→痛点→方案→技术难点→可行性）"></textarea></div>
+      <div class="cap-row" style="margin-bottom:8px">流程：第 1 轮黑盒并行提案 → 第 2 轮按完成顺序轮流改善 → 第 3 轮全员投票（有反对则回炉重议，上限 2 次，通过后交你确认执行）</div>
       <div class="section-label" style="padding-left:0">参与 agent（至少 2 个，勾选）</div>
       <div id="csMembers" class="group-members"></div>
-      <div class="field"><label>综合者（汇总各方立场、产出最终共识结论）</label><select id="csSynth"></select></div>
       <div class="modal-foot">
         <button id="btnStartConsensus" class="primary">开始协商</button>
         <button id="btnCloseConsensus2">取消</button>

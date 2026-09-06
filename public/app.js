@@ -343,7 +343,7 @@
     const back = bump();
     const open = () => {
       evtSource = new EventSource(`${API}/conversations/${convId}/stream`);
-      for (const ev of ['message', 'typing', 'tool', 'negotiation']) {
+      for (const ev of ['message', 'typing', 'tool', 'negotiation', 'stage']) {
         evtSource.addEventListener(ev, (e) => {
           let data;
           try { data = JSON.parse(e.data); } catch { return; }
@@ -362,6 +362,8 @@
     renameGroup: (id, name) => patch('/conversations/' + id, { name }),
     setGroupMembers: (id, memberIds) => patch('/conversations/' + id, { memberIds }),
     patchGroup: (id, p) => patch('/conversations/' + id, p),
+    deliberate: (id, p) => post('/conversations/' + id + '/deliberate', p),
+    delibControl: (id, action, p = {}) => post('/conversations/' + id + '/deliberation/' + action, p),
     getHistory: (id) => req('/conversations/' + id + '/history'),
     openArchive: () => post('/archive/open', {}),
     async archiveGroup(id) {
@@ -558,6 +560,7 @@
 
   // ---------------- UI state ----------------
   let curGroupId = null;
+  let curGroupData = null;
   let curTab = localStorage.getItem('zjl_space_tab') || 'overview';
 
   // ---------------- LEFT: group list ----------------
@@ -643,12 +646,14 @@
     closePreview();
     api.subscribe(id);
     const g = await api.getGroup(id);
+    curGroupData = g;
     $('#convTitle').textContent = g.name;
     renderMembers(g);
     renderMessages(g);
     renderSpace(g);
     renderSendTarget(g);
     renderNegotiation(null);
+    renderStageBar(g);
     renderGroups();
   }
 
@@ -762,12 +767,52 @@
       const meta = m.meta || {};
       if (meta.consensus && meta.kind === 'round') {
         div.className = 'msg consensus-frame';
-        div.innerHTML = `<div class="cf-pill">${ic('users', 11, 11)} 第 ${meta.round}/${meta.rounds} 轮 · 协商</div><div class="cf-text">${renderMd(m.text)}</div>`;
+        div.innerHTML = `<div class="cf-pill">${ic('users', 11, 11)} 协商</div><div class="cf-text">${renderMd(m.text)}</div>`;
         div.dataset.mid = m.id; return div;
       }
       if (meta.consensus && meta.kind === 'conclusion') {
         div.className = 'msg consensus-frame cf-conclusion-frame';
         div.innerHTML = `<div class="cf-pill">${ic('clipboard', 11, 11)} 综合阶段</div><div class="cf-text">${renderMd(m.text)}</div>`;
+        div.dataset.mid = m.id; return div;
+      }
+      // Batch B: the confirm gate after a passed vote — user approves/rejects.
+      if (meta.consensus && meta.confirm) {
+        div.className = 'msg consensus-frame cf-confirm';
+        div.innerHTML = `<div class="cf-pill">${ic('flag', 11, 11)} 确认门 · 方案待你审批</div><div class="cf-text">${renderMd(m.text)}</div>
+          <div class="confirm-opts">
+            <button class="ask-opt ok" data-act="approve">确认执行</button>
+            <button class="ask-opt no" data-act="reject">打回重议</button>
+          </div>`;
+        div.querySelectorAll('.confirm-opts .ask-opt').forEach((b) => {
+          b.onclick = () => {
+            const approve = b.dataset.act === 'approve';
+            if (approve) delibAction('confirm', { ok: true });
+            else {
+              const note = prompt('打回意见（会带给全体成员重新商议，可留空）：');
+              if (note === null) return;
+              delibAction('confirm', { ok: false, note });
+            }
+            const opts = div.querySelector('.confirm-opts');
+            if (opts) opts.remove();
+          };
+        });
+        div.dataset.mid = m.id; return div;
+      }
+      // Batch B: rework cap reached — user adjudicates.
+      if (meta.consensus && meta.deliberation === 'stuck') {
+        div.className = 'msg consensus-frame cf-confirm';
+        div.innerHTML = `<div class="cf-pill">${ic('bell', 11, 11)} 需要你裁决</div><div class="cf-text">${renderMd(m.text)}</div>
+          <div class="confirm-opts">
+            <button class="ask-opt ok" data-act="force">直接拍板采纳</button>
+            <button class="ask-opt no" data-act="terminate">终止协商</button>
+          </div>`;
+        div.querySelectorAll('.confirm-opts .ask-opt').forEach((b) => {
+          b.onclick = () => {
+            delibAction('adjudicate', { choice: b.dataset.act });
+            const opts = div.querySelector('.confirm-opts');
+            if (opts) opts.remove();
+          };
+        });
         div.dataset.mid = m.id; return div;
       }
       div.className = 'msg system';
@@ -2028,15 +2073,6 @@
         <span class="ac-cap ${capClass(a.adapterType)}" style="margin-left:auto">${capabilityOf(a.adapterType)}</span>`;
       box.appendChild(row);
     });
-    // synthesizer: prefer a model-backed (B-class) agent, else first member.
-    const sel = $('#csSynth'); sel.innerHTML = '';
-    const bFirst = members.find((id) => { const a = findAgent(id); return a && (a.adapterType === 'B' || (a.config && a.config.model)); });
-    members.forEach((id) => {
-      const a = findAgent(id); if (!a) return;
-      const o = document.createElement('option'); o.value = id; o.textContent = a.name;
-      if (id === (bFirst || members[0])) o.selected = true;
-      sel.appendChild(o);
-    });
     $('#csTopic').value = '';
     $('#consensusModal').classList.remove('hidden');
   }
@@ -2046,11 +2082,9 @@
     if (!topic) { toast('请填写议题'); return; }
     const ids = $$('#csMembers input[type=checkbox]').filter((c) => c.checked).map((c) => c.dataset.id);
     if (ids.length < 2) { toast('至少选择 2 个参与 agent'); return; }
-    const rounds = Number($('#csRounds').value) || 3;
-    const synth = $('#csSynth').value;
     $('#consensusModal').classList.add('hidden');
-    await api.startConsensus(curGroupId, { topic, participantIds: ids, rounds, synthesizerId: synth });
-    toast('协商已启动，多 agent 正在多轮讨论…');
+    await api.deliberate(curGroupId, { topic, participantIds: ids });
+    toast('协商已启动：黑盒提案 → 轮流改善 → 投票');
   }
 
   // ---------------- wire up ----------------
@@ -2062,6 +2096,9 @@
   $('#btnSettings').onclick = openSettings;
   $('#btnGroupSettings').onclick = () => { if (curGroupId) openGroupModal(curGroupId); };
   $('#btnConsensus').onclick = openConsensusModal;
+  $('#btnDelibPause').onclick = () => delibAction('pause');
+  $('#btnDelibResume').onclick = () => delibAction('resume');
+  $('#btnDelibStop').onclick = () => { if (confirm('确定中止当前协商？已完成轮次保留，可改议题重开。')) delibAction('stop'); };
   $('#closeConsensus').onclick = $('#btnCloseConsensus2').onclick = () => $('#consensusModal').classList.add('hidden');
   $('#btnStartConsensus').onclick = startConsensus;
   $('#closeSettings').onclick = () => $('#settingsModal').classList.add('hidden');
@@ -2339,6 +2376,12 @@
   api.on('negotiation', ({ groupId, negotiation }) => {
     if (groupId !== curGroupId) return;
     renderNegotiation(negotiation);
+    if (curGroupData) { curGroupData.deliberation = negotiation; renderStageBar(curGroupData); }
+  });
+  api.on('stage', ({ groupId, stage }) => {
+    if (groupId !== curGroupId || !curGroupData) return;
+    curGroupData.stage = stage;
+    renderStageBar(curGroupData);
   });
 
   // Progress banner for an in-flight / completed multi-agent negotiation.
@@ -2362,6 +2405,42 @@
     } else {
       bar.innerHTML = `${ic('users', 12, 12)} 协商中 · 第 <b>${n.round || 1}</b>/<b>${n.rounds}</b> 轮 · 议题：${esc(n.topic || '')}`;
     }
+  }
+
+  // ---------------- stage engine UI (batch B) ----------------
+  const STAGE_LABEL = { idle: '空闲', discuss: '探讨协商', await_confirm: '待你确认', execute: '执行中', review: '审核', retro: '复盘' };
+  function renderStageBar(g) {
+    const badge = $('#stageBadge'), bar = $('#delibBar');
+    if (!badge || !bar) return;
+    const stage = (g && g.stage) || 'idle';
+    const d = g && g.deliberation;
+    const paused = d && d.status === 'paused';
+    const stuck = d && d.status === 'stuck';
+    const active = d && d.active && d.status === 'running';
+    badge.classList.toggle('hidden', stage === 'idle');
+    badge.textContent = STAGE_LABEL[stage] || stage;
+    badge.className = 'stage-badge' + (stage === 'await_confirm' ? ' hot' : '') + (stage === 'execute' ? ' run' : '');
+    badge.title = d && d.topic ? `议题：${d.topic}` : '项目阶段';
+    // control bar: visible while a deliberation exists and is not concluded
+    const showBar = !!(d && (active || paused || stuck));
+    bar.classList.toggle('hidden', !showBar);
+    if (showBar) {
+      $('#btnDelibPause').classList.toggle('hidden', !active);
+      $('#btnDelibResume').classList.toggle('hidden', !paused);
+      $('#btnDelibStop').classList.remove('hidden');
+      bar.title = paused ? '协商已暂停（进度保留）' : stuck ? '协商已回炉 2 次仍存在反对票，需要你裁决' : `协商进行中 · 周期 ${d.cycle || 0}/2`;
+    }
+  }
+
+  async function delibAction(action, p) {
+    if (!curGroupId) return;
+    try {
+      const r = await api.delibControl(curGroupId, action, p);
+      if (r && r.note) toast(r.note);
+      const g = await api.getGroup(curGroupId);
+      curGroupData = g;
+      renderStageBar(g);
+    } catch (e) { toast('操作失败：' + e.message); }
   }
 
   // ---------------- 三库面板（左栏竖排 + 悬停浮出）：资料库 / 技能库 / 权限库 ----------------

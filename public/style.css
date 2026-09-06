@@ -777,6 +777,19 @@ body.drawer-open #resRight { display: block; }
 .load-earlier { display: block; margin: 10px auto; padding: 5px 16px; font-size: 12px; border-radius: var(--r-pill); border: 1px solid var(--border); background: var(--panel2); color: var(--muted); cursor: pointer; transition: all .12s; }
 .load-earlier:hover { color: var(--accent); border-color: var(--accent); }
 
+/* stage engine (batch B): header badge + deliberation control bar + confirm gate */
+.stage-badge { flex: none; font-size: 11px; padding: 3px 10px; border-radius: var(--r-pill); border: 1px solid var(--border); color: var(--muted); background: var(--panel3); white-space: nowrap; }
+.stage-badge.hot { color: #f59e0b; border-color: color-mix(in srgb, #f59e0b 50%, transparent); background: color-mix(in srgb, #f59e0b 12%, transparent); }
+.stage-badge.run { color: var(--accent2); border-color: color-mix(in srgb, var(--accent2) 45%, transparent); background: color-mix(in srgb, var(--accent2) 12%, transparent); }
+.delib-bar { flex: none; display: flex; gap: 5px; align-items: center; }
+.delib-btn { padding: 4px 10px; font-size: 11px; border-radius: var(--r-pill); border: 1px solid var(--border); background: var(--panel3); color: var(--text); cursor: pointer; }
+.delib-btn:hover { border-color: var(--accent); color: var(--accent); }
+.delib-btn.danger:hover { border-color: #ef4444; color: #ef4444; }
+.cf-confirm .cf-text { max-height: 300px; overflow-y: auto; }
+.confirm-opts { display: flex; gap: 8px; margin-top: 8px; }
+.confirm-opts .ask-opt.ok { border-color: color-mix(in srgb, var(--accent) 55%, transparent); color: var(--accent); }
+.confirm-opts .ask-opt.no:hover { border-color: #ef4444; color: #ef4444; }
+
 /* ================= 三库面板（左栏）：资料库 / 技能库 / 权限库 ================= */
 .lib-nav { display: flex; flex-direction: column; gap: 3px; margin: 2px 8px 8px; }
 .lib-row { display: flex; align-items: center; gap: 8px; padding: 7px 10px; font-size: 12px; color: var(--text); background: var(--panel2); border: 1px solid var(--border); border-radius: var(--r-md); cursor: pointer; text-align: left; font-family: inherit; transition: background .12s, border-color .12s; }

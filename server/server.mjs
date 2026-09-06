@@ -16,6 +16,7 @@ import { createSkills } from './memory/skills.mjs';
 import { createAcl } from './memory/acl.mjs';
 import { distillConv, distillMessage } from './memory/distill.mjs';
 import { guessKind, guessRole, ensureRoles } from './roles.mjs';
+import { runDeliberation, controlDeliberation } from './deliberate.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -1252,9 +1253,9 @@ async function handleApi(req, res, url) {
     }).catch((e) => console.error('bus error', e.message));
     return sendJson(res, 200, msg);
   }
-  // Dedicated consensus endpoint (used by the UI "发起协商" panel): lets the
-  // caller pick participants / rounds / synthesizer explicitly.
-  if (method === 'POST' && parts[1] === 'conversations' && parts[2] && parts[3] === 'consensus') {
+    // Dedicated consensus endpoint (used by the UI "发起协商" panel): lets the
+    // caller pick participants / rounds / synthesizer explicitly.
+    if (method === 'POST' && parts[1] === 'conversations' && parts[2] && parts[3] === 'consensus') {
     const c = store.getConversation(parts[2]);
     if (!c) return sendJson(res, 404, { error: 'not found' });
     const b = await readBody(req);
@@ -1268,6 +1269,40 @@ async function handleApi(req, res, url) {
       recall: kbRecall, onConclusion: distillConclusion,
     }).catch((e) => console.error('consensus error', e.message));
     return sendJson(res, 200, { ok: true, note: '协商已启动' });
+  }
+  // Batch B: the three-round deliberation engine (black-box parallel ->
+  // completion-ordered relay -> vote with capped dissent rework) + the stage
+  // engine. Replaces /consensus as the primary negotiation entry.
+  if (method === 'POST' && parts[1] === 'conversations' && parts[2] && parts[3] === 'deliberate') {
+    const c = store.getConversation(parts[2]);
+    if (!c) return sendJson(res, 404, { error: 'not found' });
+    const b = await readBody(req);
+    const emit = (event, data) => broadcast(c.id, event, data);
+    runDeliberation({
+      conv: c, agents: store.getAgents(), topic: b.topic || '（未指定议题）',
+      participantIds: b.participantIds,
+      emit, persist: () => store.save(),
+      recordTool: (agentId, tool) => store.recordTool(agentId, tool),
+      settings: store.getSettings(), recall: kbRecall,
+    }).catch((e) => console.error('deliberation error', e.message));
+    return sendJson(res, 200, { ok: true, note: '协商已启动（三轮制：黑盒提案→轮流改善→投票）' });
+  }
+  // User master controls over a running/finished deliberation.
+  if (method === 'POST' && parts[1] === 'conversations' && parts[2] && parts[3] === 'deliberation' && parts[4]) {
+    const c = store.getConversation(parts[2]);
+    if (!c) return sendJson(res, 404, { error: 'not found' });
+    const b = await readBody(req).catch(() => ({}));
+    const emit = (event, data) => broadcast(c.id, event, data);
+    try {
+      const r = await controlDeliberation(c, store.getAgents(), parts[4], b, {
+        emit, persist: () => store.save(),
+        recordTool: (agentId, tool) => store.recordTool(agentId, tool),
+        settings: store.getSettings(), recall: kbRecall,
+      });
+      return sendJson(res, 200, r);
+    } catch (e) {
+      return sendJson(res, 400, { error: e.message });
+    }
   }
   if (method === 'POST' && parts[1] === 'conversations' && parts[2] && parts[3] === 'space') {
     const c = store.getConversation(parts[2]);
