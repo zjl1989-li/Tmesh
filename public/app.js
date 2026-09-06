@@ -672,6 +672,7 @@
     renderNegotiation(null);
     renderStageBar(g);
     taskMode = false;
+    const tmBtn = $('#btnTaskMode'); if (tmBtn) tmBtn.classList.remove('active');
     renderTaskBar(g);
     renderGroups();
   }
@@ -2182,7 +2183,6 @@
   $('#btnDelibResume').onclick = () => delibAction('resume');
   $('#btnDelibStop').onclick = () => { if (confirm('确定中止当前协商？已完成轮次保留，可改议题重开。')) delibAction('stop'); };
   $('#btnTaskMode').onclick = () => setTaskMode(!taskMode);
-  $('#btnTaskCancel').onclick = () => setTaskMode(false);
   $('#closeConsensus').onclick = $('#btnCloseConsensus2').onclick = () => $('#consensusModal').classList.add('hidden');
   $('#btnStartConsensus').onclick = startConsensus;
   $('#closeSettings').onclick = () => $('#settingsModal').classList.add('hidden');
@@ -2240,9 +2240,11 @@
   // 发送对象下拉：按当前选中项收窄宽度
   $('#sendTarget').addEventListener('change', () => {
     fitSendTarget();
-    // Switched away from an executor target while armed -> disarm, the order
-    // must always name a machine-capable member.
-    if (taskMode) setTaskMode(true); // revalidates; disarms with a toast if invalid
+    // Boss's default: picking an executor-capable member IS dispatch mode.
+    // Selecting a model member or @all silently leaves it - a manual toggle
+    // is still available for chatting with an executor without a work order.
+    const { a, roles } = currentTargetAgent();
+    setTaskMode(!!a && execCapable(a, roles));
   });
   // 主题切换：body.light 与深色主题互切，localStorage 记忆选择
   function syncThemeBtn() {
@@ -2525,6 +2527,11 @@
       }
     }
     taskMode = !!on;
+    const tmBtn = $('#btnTaskMode');
+    if (tmBtn) {
+      tmBtn.classList.toggle('active', on);
+      tmBtn.title = on ? '派工模式已开启（再点一次退出）' : '派工模式：把这条消息变成派工单，独占分派给一个执行 agent（一个活只让一个 agent 干）';
+    }
     if (curGroupData) renderTaskBar(curGroupData);
     $('#input').placeholder = on
       ? '描述要执行的任务（将生成派工单，独占分派）…'

@@ -205,6 +205,7 @@ body.light .theme-toggle .tt-sun { background: var(--accent-soft); color: var(--
 .composer-bar { display: flex; gap: 4px; align-items: center; margin-top: 6px; padding: 0 2px; }
 .composer-bar .tool { height: 30px; min-width: 30px; padding: 0 8px; display: inline-flex; align-items: center; justify-content: center; background: transparent; color: var(--muted); border: none; border-radius: var(--r-md); cursor: pointer; font-size: 14px; transition: color .12s, background .12s; }
 .composer-bar .tool:hover { color: var(--text); background: var(--panel3); }
+.composer-bar .tool.active { color: var(--accent, #f0997b); background: color-mix(in srgb, var(--accent, #f0997b) 14%, transparent); }
 /* mic is a small badge tucked right against the round send button */
 .composer-bar .tool.mic-mini { height: 26px; min-width: 26px; padding: 0 5px; font-size: 12px; border-radius: var(--r-sm); }
 .composer-bar select { height: 30px; padding: 0 20px 0 8px; background: var(--panel3); color: var(--text); border: 1px solid var(--border); border-radius: var(--r-md); font-size: 12px; cursor: pointer; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%238b94a7' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 7px center; background-size: 8px 8px; }
@@ -565,6 +566,7 @@ body.light .modal { background: rgba(18,24,46,.32); }
 .composer-bar { display: flex; gap: 4px; align-items: center; margin-top: 6px; padding: 0 2px; }
 .composer-bar .tool { height: 30px; min-width: 30px; padding: 0 8px; display: inline-flex; align-items: center; justify-content: center; background: transparent; color: var(--muted); border: none; border-radius: var(--r-md); cursor: pointer; font-size: 14px; transition: color .12s, background .12s; }
 .composer-bar .tool:hover { color: var(--text); background: var(--panel3); }
+.composer-bar .tool.active { color: var(--accent, #f0997b); background: color-mix(in srgb, var(--accent, #f0997b) 14%, transparent); }
 /* mic is a small badge tucked right against the round send button */
 .composer-bar .tool.mic-mini { height: 26px; min-width: 26px; padding: 0 5px; font-size: 12px; border-radius: var(--r-sm); }
 .composer-bar select { height: 30px; padding: 0 20px 0 8px; background: var(--panel3); color: var(--text); border: 1px solid var(--border); border-radius: var(--r-md); font-size: 12px; cursor: pointer; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%238b94a7' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 7px center; background-size: 8px 8px; }
