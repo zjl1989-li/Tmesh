@@ -2409,6 +2409,19 @@
     if (saved) saved.classList.add('active');
   }
 
+  // 竖排标签栏收起/展开（收起后整条缩成细边，只留箭头；状态记忆）
+  const spaceWrap = $('#spaceWrap');
+  const stabFoldBtn = $('#btnStabFold');
+  stabFoldBtn.onclick = () => {
+    const folded = spaceWrap.classList.toggle('folded');
+    stabFoldBtn.title = folded ? '展开标签栏' : '收起标签栏';
+    localStorage.setItem('zjl_space_rail_fold', folded ? '1' : '0');
+  };
+  if (localStorage.getItem('zjl_space_rail_fold') === '1') {
+    spaceWrap.classList.add('folded');
+    stabFoldBtn.title = '展开标签栏';
+  }
+
   // ---------------- desktop notification & sound ----------------
   // Agents reply while the user is in another group or another window. Opt-in
   // switches live at the top of the settings panel; state in localStorage.

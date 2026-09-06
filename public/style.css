@@ -235,7 +235,16 @@ body.light .theme-toggle .tt-sun { background: var(--accent-soft); color: var(--
 /* tabs stacked vertically along the rail's left edge (boss: 层叠, not 平铺);
    active state = left accent bar + tinted row instead of underline */
 .space-wrap { flex: 1 1 auto; min-height: 0; display: flex; }
-.space-tabs { flex: 0 0 62px; display: flex; flex-direction: column; border-right: 1px solid var(--border); overflow-y: auto; overflow-x: hidden; }
+.space-rail { flex: 0 0 62px; min-height: 0; display: flex; flex-direction: column; border-right: 1px solid var(--border); }
+.space-tabs { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; }
+.stab-fold { flex: 0 0 auto; display: flex; align-items: center; justify-content: flex-end; width: 100%; padding: 5px 4px; background: none; border: none; color: var(--muted); cursor: pointer; }
+.stab-fold:hover { color: var(--text); background: var(--panel2); }
+.stab-fold svg { transition: transform .15s; }
+/* folded: rail collapses to a slim handle, tabs hidden, chevron flips */
+.space-wrap.folded .space-rail { flex-basis: 16px; }
+.space-wrap.folded .space-tabs { display: none; }
+.space-wrap.folded .stab-fold { justify-content: center; padding: 7px 0; }
+.space-wrap.folded .stab-fold svg { transform: rotate(180deg); }
 .stab { flex: none; text-align: left; background: none; border: none; border-left: 2px solid transparent; color: var(--muted); padding: 9px 8px 9px 10px; cursor: pointer; font-size: 12px; white-space: nowrap; }
 .stab:hover { color: var(--text); }
 .stab.active { color: var(--accent); border-left-color: var(--accent); background: var(--panel2); }
