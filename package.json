@@ -1,6 +1,6 @@
 {
   "name": "tmesh",
-  "version": "1.0.1",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "description": "Tmesh - local-first multi-agent group chat hub (agent 群聊枢纽).",

@@ -3,7 +3,40 @@
 All notable changes to this project are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is [SemVer](https://semver.org/).
 
-## [1.0.1] - 2026-09-05
+## [1.2.0] - 2026-09-07
+
+### Added
+
+- **Per-turn cost footer**: every agent reply now carries its own usage — a compact "⚡ 4.2k tokens" line under the bubble, fed straight from the adapter's usage report (G-class CLI grand totals included; bridge agents whose credit meter lives inside their own product show nothing rather than a lie).
+- **Global usage ledger**: new usage button next to the dispatch toggle opens a modal with today/month tokens & turns for every agent — sorted by burn, grand-total row, and an over-threshold highlight driven by `warnTokensDay`.
+- **UI i18n**: zh/en runtime toggle (~55 keys, `data-i18n` attribute driven), persisted in `localStorage` with `navigator.language` fallback; stable channel keys keep sort order translation-independent.
+- **Mobile tier (≤480px)**: off-canvas group drawer with backdrop, 34px touch targets, 16px input font (iOS zoom guard), safe-area composer padding.
+- **Bilingual README**: English main entry + zh-CN edition, cross-linked; documents the local CLI agent surface, usage ledger and `/clear`.
+- **G-class deep probe** (`/api/agents/probe` with `deep:true`): runs one real CLI round (30s cap) to catch the "process alive, model path dead" blind spot that a cheap ping cannot see. Heartbeats stay cheap; deep checks cost tokens only on demand.
+- **`/clear`**: resets a group's model context — history stays visible, agents start from the marker.
+
+### Fixed
+
+- **npm test repaired**: the script still pointed at seven `scripts/` helpers deleted in the frontend split, so `npm test` died with MODULE_NOT_FOUND; replaced with bare `node --test` (auto-discovers `tests/*.test.mjs`). Four `usage.test.mjs` assertions reconciled with the G-class ledger semantics (`normalizeUsage` always returns `total`; the store persists it only when non-zero) — 76/76 green.
+- **codex CLI "vanished" after a Temp cleanup**: a missing agent `cwd` makes Windows `spawn` fail with ENOENT *pointing at the exe*, which read like the binary was gone. The cwd is now recreated before spawn (CLI scratch dirs are disposable by design).
+
+### Changed
+
+- **Frontend split**: the 2,996-line `app.js` monolith became 13 ES modules (`core/api/status/state/center/space/settings/wizard/modals/flags/i18n/wire/boot`) with a loop-safe dependency graph — `core` is zero-dep and `wire` is imported only by `boot`, so DOM binding happens after every module is live. Cross-module mutable state goes through setters (ESM import bindings are read-only). Verified with `node --check` → module-import smoke → CDP headless (desktop + 390×844).
+
+## [1.1.0] - 2026-09-06
+
+### Added
+
+- **Roles + commander dispatch channel**: role tags (指挥/执行/审核/参谋), `【派单】` parsing into work-order proposals that always pass user approval, execution lock so exec-class jobs are exclusive, and a hard gate that refuses dispatch creation during `discuss`/`await_confirm` stages.
+- **Three-round deliberation engine**: independent proposals → rotating improvement passes → voting, with stuck-state detection.
+- **Usage ledger v1**: per-agent daily buckets (tokens + turns, the boss's two gauges), 60-day retention, threshold warnings (yellow badge + once-a-day toast), adapter-visible token splits for A/B class and turn counts as the honest floor for C-class bridges.
+- **L0 head auto-distill**: conversation heads are sunk into the knowledge base before budget trimming drops them.
+- **Collapsible vertical space-tab rail** (knowledge / skills / ACL / monitoring).
+
+[Unreleased]: https://github.com/zjl1989-li/Tmesh/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/zjl1989-li/Tmesh/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/zjl1989-li/Tmesh/compare/v1.0.1...v1.1.0
 
 ### Added
 
