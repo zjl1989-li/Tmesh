@@ -1,6 +1,9 @@
 // Usage ledger tests (tokens + turns, boss's two gauges).
-//   - normalizeUsage: OpenAI / camelCase / CLI dialects -> {prompt, completion}
-//   - store.recordUsage: per-day buckets accumulate, 60-day cap, deleteAgent cleans up
+//   - normalizeUsage: OpenAI / camelCase / CLI dialects -> {prompt, completion, total}
+//     (total is always present: CLI agents report only a grand total, and a
+//     stable shape keeps the ledger simple; 0 means "no total in this dialect")
+//   - store.recordUsage: per-day buckets accumulate (total persisted only when
+//     non-zero), 60-day cap, deleteAgent cleans up
 // Uses the same sandbox trick as scripts/test-store.mjs: copy store.mjs into a
 // throwaway temp dir so the real data.json is never touched.
 import { test } from 'node:test';
@@ -24,10 +27,12 @@ function sandbox(seed) {
 }
 
 test('normalizeUsage: OpenAI snake_case dialect', () => {
-  assert.deepEqual(normalizeUsage({ prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 }), { prompt: 100, completion: 20 });
+  assert.deepEqual(normalizeUsage({ prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 }), { prompt: 100, completion: 20, total: 120 });
 });
 test('normalizeUsage: camelCase (ACP usage_update) dialect', () => {
-  assert.deepEqual(normalizeUsage({ inputTokens: 7, outputTokens: 3 }), { prompt: 7, completion: 3 });
+  // total is always present (0 when the dialect carries none) - keeps the
+  // ledger shape stable across A/B/G classes.
+  assert.deepEqual(normalizeUsage({ inputTokens: 7, outputTokens: 3 }), { prompt: 7, completion: 3, total: 0 });
 });
 test('normalizeUsage: null/empty/garbage -> null (turns still counted upstream)', () => {
   assert.equal(normalizeUsage(null), null);
@@ -35,7 +40,7 @@ test('normalizeUsage: null/empty/garbage -> null (turns still counted upstream)'
   assert.equal(normalizeUsage({ model: 'x' }), null);
 });
 test('normalizeUsage: negative numbers are ignored, not trusted', () => {
-  assert.deepEqual(normalizeUsage({ prompt_tokens: -5, completion_tokens: 9 }), { prompt: 0, completion: 9 });
+  assert.deepEqual(normalizeUsage({ prompt_tokens: -5, completion_tokens: 9 }), { prompt: 0, completion: 9, total: 0 });
 });
 
 test('recordUsage: day bucket accumulates turns and tokens', async () => {

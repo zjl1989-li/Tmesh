@@ -257,7 +257,9 @@ export const store = {
       b.completion += usage.completion || 0;
       // CLI agents report only a grand total (codex exec "tokens used");
       // kept in its own bucket so prompt/completion stay split-accurate.
-      b.total = (b.total || 0) + (usage.total || 0);
+      // Written only when non-zero: A/B-class usage has no total, and a
+      // "total: 0" field in every bucket is just noise for readers.
+      if (usage.total) b.total = (b.total || 0) + usage.total;
     }
     const days = Object.keys(by).sort();
     while (days.length > 60) delete by[days.shift()];
