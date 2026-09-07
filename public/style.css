@@ -971,3 +971,32 @@ body.light::after { opacity: .03; }
 /* usage ledger line on the agent card (tokens+turns; warn = over daily budget) */
 .usage-row { font-size: 11px; color: var(--muted); margin: -4px 0 9px; font-family: var(--font-mono); }
 .usage-row.warn { color: var(--warn); }
+
+/* ================= phone tier (<= 480px) =================
+   Left nav becomes an off-canvas drawer behind the existing toggle button
+   (on phones the group list matters more than the artifact rail, so the
+   toggle reuses the drawer-open class for the LEFT side; the right rail
+   stays hidden - open a real browser for the full three-column view). */
+@media (max-width: 480px) {
+  #left {
+    position: fixed; top: 0; left: 0; bottom: 0; z-index: 60;
+    width: min(84vw, 320px); flex-basis: auto;
+    transform: translateX(-105%);
+    transition: transform .22s ease;
+    box-shadow: 8px 0 24px rgba(0, 0, 0, .45);
+  }
+  body.drawer-open #left { transform: none; }
+  /* dim backdrop; a tap on it bubbles to body -> handled in wire.js */
+  body.drawer-open::after { content: ''; position: fixed; inset: 0; z-index: 55; background: rgba(0, 0, 0, .45); }
+  #right, #resRight { display: none !important; }
+  #drawerToggle { display: flex; left: 10px; right: auto; }
+  /* comfortable touch targets */
+  button, .stab, .group-item, .lib-row, .ask-opt { min-height: 34px; }
+  .group-item { padding: 9px 10px; }
+  /* iOS zooms into inputs smaller than 16px on focus */
+  #input { font-size: 16px; }
+  .composer { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+  /* let the negotiation control bar wrap instead of overflowing */
+  .header-actions, .delib-row { flex-wrap: wrap; }
+  .modal-sheet, .modal-box { max-width: 96vw; }
+}
