@@ -299,6 +299,7 @@ export async function dispatch({
           text: `[${agent.name}] 会话已重建，之前的上下文丢失`, ts: Date.now(),
         } });
       }
+      const turnNorm = normalizeUsage(turnUsage);
       const msg = {
         id: mid(),
         sender: 'agent',
@@ -311,6 +312,9 @@ export async function dispatch({
         // Carries the question to the UI: same shape whether it came from DSH's
         // ask tool or was recognised in plain model output.
         ...(newAsk ? { ask: newAsk } : {}),
+        // Per-turn cost shown under the bubble (null for C-class bridges ->
+        // field omitted; their credit meter lives inside their own product).
+        ...(turnNorm ? { usage: turnNorm } : {}),
         // Bridge (C class) products return deliverables on disk; relay them so
         // the UI can surface them in the group space (§8.2). Other adapters
         // simply omit this field.
@@ -324,7 +328,7 @@ export async function dispatch({
       endTask(agent.id);
       // Ledger the turn regardless of whether the adapter saw usage numbers:
       // turns are the universal gauge, tokens are the bonus (A/B class).
-      usageSink?.(agent.id, normalizeUsage(turnUsage), 1);
+      usageSink?.(agent.id, turnNorm, 1);
       // The question is answered, so release the router. Order matters: endTask
       // just painted this agent idle, and the ask state has to land after it.
       clearPendingAsk(conv.id, agent.id);

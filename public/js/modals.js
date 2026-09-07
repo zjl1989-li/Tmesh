@@ -35,7 +35,7 @@ export async function openGroupModal(id) {
   $('#groupModal').classList.remove('hidden');
 }
 
-// ---------------- usage ledger (tokens + turns, boss's two gauges) --------
+// ---------------- MODAL: usage ledger (all agents, today + month) -----------
 export const fmtNum = (n) => (n >= 10000 ? (n / 10000).toFixed(1) + '万' : String(n));
 export const todayKey = () => new Date().toISOString().slice(0, 10);
 export function usageDay(u, agentId, day) {
@@ -71,6 +71,27 @@ export async function maybeUsageWarn(agentId) {
       : '建议在其产品内切换更便宜的模型';
     toast(`⚠ ${a.name} 今日已消耗 ${fmtNum(toks)} tokens · ${turns} 轮，${tip}`);
   } catch { /* ledger is advisory; never break chat over it */ }
+}
+
+// Global ledger panel: every agent's today/month tokens+turns, sorted by
+// recent burn. Bridge agents (C class) legitimately have 0 tokens - show
+// turns so they don't look dead. A grand-total row closes the table.
+export async function openUsageModal() {
+  const [u, agents, settings] = await Promise.all([api.getUsage(), api.listAgents(), api.getSettings()]);
+  const warnTok = settings?.warnTokensDay > 0 ? settings.warnTokensDay : Infinity;
+  const day = todayKey(), month = day.slice(0, 7);
+  const rows = agents.map((a) => ({ a, d: usageDay(u, a.id, day), m: usageMonth(u, a.id, month) }))
+    .filter((r) => r.d.toks || r.m.toks || r.d.turns || r.m.turns)
+    .sort((x, y) => ((y.d.toks + y.m.toks) - (x.d.toks + x.m.toks)) || ((y.d.turns + y.m.turns) - (x.d.turns + x.m.turns)));
+  const el = $('#usageList');
+  if (!rows.length) { el.innerHTML = `<div class="usage-empty">还没有消耗记录 — 群里 @ 一次 agent 就会有。</div>`; }
+  else {
+    const sum = rows.reduce((s, r) => ({ d: s.d + r.d.toks, m: s.m + r.m.toks, dt: s.dt + r.d.turns, mt: s.mt + r.m.turns }), { d: 0, m: 0, dt: 0, mt: 0 });
+    el.innerHTML = `<table class="usage-table"><thead><tr><th>agent</th><th>今日</th><th>本月</th></tr></thead><tbody>`
+      + rows.map((r) => `<tr${r.d.toks >= warnTok ? ' class="over"' : ''}><td class="u-name">${esc(r.a.name)}</td><td>${fmtNum(r.d.toks)} tk · ${r.d.turns} 轮</td><td>${fmtNum(r.m.toks)} tk · ${r.m.turns} 轮</td></tr>`).join('')
+      + `<tr class="u-sum"><td>合计</td><td>${fmtNum(sum.d)} tk · ${sum.dt} 轮</td><td>${fmtNum(sum.m)} tk · ${sum.mt} 轮</td></tr></tbody></table>`;
+  }
+  $('#usageModal').classList.remove('hidden');
 }
 
 // ---------------- POPOVER: agent status card (left-click avatar) ----------------

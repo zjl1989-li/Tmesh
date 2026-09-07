@@ -3,7 +3,7 @@ import { API, api, del, on, req } from './api.js';
 import { appendMessage, buildMsgEl, captureArtifacts, currentTargetAgent, delibAction, execCapable, fitSendTarget, maybeCapBubble, renderNegotiation, renderStageBar, selectGroup, send, setTaskMode, showToolCall, showTyping, taskMode } from './center.js';
 import { $, $$, USER, esc, ic, setStickBottom, syncStick } from './core.js';
 import { notifyOn, ping, soundOn } from './flags.js';
-import { maybeUsageWarn, openConsensusModal, openGroupModal, startConsensus, toast, toastEl } from './modals.js';
+import { maybeUsageWarn, openConsensusModal, openGroupModal, openUsageModal, startConsensus, toast, toastEl } from './modals.js';
 import { agentCard, openSettings } from './settings.js';
 import { closePreview, detectKind, renderSpace } from './space.js';
 import { curGroupData, curGroupId, curTab, groupSearch, renderGroups, setCurTab, setGroupSearch } from './state.js';
@@ -30,6 +30,8 @@ $('#closeConsensus').onclick = $('#btnCloseConsensus2').onclick = () => $('#cons
 $('#btnStartConsensus').onclick = startConsensus;
 $('#closeSettings').onclick = () => $('#settingsModal').classList.add('hidden');
 $('#closeGroup').onclick = $('#btnCloseGroup2').onclick = () => $('#groupModal').classList.add('hidden');
+$('#btnUsage').onclick = () => openUsageModal().catch((e) => toast('消耗数据加载失败：' + e.message));
+$('#closeUsage').onclick = () => $('#usageModal').classList.add('hidden');
 $('#ac-close').onclick = () => $('#agentCard').classList.add('hidden');
 
 $('#btnSaveGroup').onclick = async () => {

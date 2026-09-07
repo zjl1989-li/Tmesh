@@ -1742,6 +1742,10 @@ export class CliAdapter {
     // hanging on a dead handle; an explicitly ended pipe delivers a clean EOF.
     let child;
     try {
+      // A missing cwd makes Windows spawn fail with ENOENT *pointing at the
+      // exe*, which reads like "binary vanished" but is really "folder swept
+      // by a Temp cleaner". Recreate it - CLI scratch dirs are disposable.
+      if (this.cwd) { try { mkdirSync(this.cwd, { recursive: true }); } catch { /* fall through to the real error */ } }
       child = spawn(cmd, args, { cwd: this.cwd, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
       child.stdin.end('');
     } catch (e) { return { text: `[${this.agent.name}] 无法启动 CLI：${e.message}` }; }

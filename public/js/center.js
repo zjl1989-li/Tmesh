@@ -318,11 +318,18 @@ export function buildMsgEl(m, thinking) {
     const roleTag = senderA
       ? `<span class="role-tag" title="${mdEsc([capabilityOf(senderA.adapterType), senderA.role].filter(Boolean).join(' · '))}">${mdEsc(senderA.role || capabilityOf(senderA.adapterType) || 'agent')}</span>`
       : '';
+    // per-turn cost footer: tokens this reply burned, straight from the
+    // adapter's usage report (A/B split summed; G-class grand total; C-class
+    // bridges report nothing -> no footer, their meter is inside the product).
+    const uTok = m.usage ? (m.usage.prompt || 0) + (m.usage.completion || 0) + (m.usage.total || 0) : 0;
+    const usageFoot = uTok
+      ? `<div class="turn-usage" title="本轮模型消耗（agent 侧上报）">${ic('cpu', 10, 10)} ${(uTok >= 10000 ? (uTok / 10000).toFixed(1) + '万' : uTok)} tokens</div>`
+      : '';
     div.className = 'msg ' + cls + (isConcl ? ' consensus-conclusion' : '');
     div.innerHTML = `${senderA ? avHtml(senderA, 'msg-av') : `<span class="msg-av" style="background:${color}">${esc(who[0])}</span>`}
       <div class="msg-col">
         <div class="who"><span class="who-name">${esc(who)}</span>${roleTag}${delegatedTag(m)}${tag}<span class="time">${fmtTime(m.ts)}</span></div>
-        <div class="bubble">${renderMd(m.text)}</div>${askCard(m)}${thinking ? thinkingBlockHtml(thinking.entries, thinking.collapsed) : ''}
+        <div class="bubble">${renderMd(m.text)}</div>${usageFoot}${askCard(m)}${thinking ? thinkingBlockHtml(thinking.entries, thinking.collapsed) : ''}
       </div>`;
     // collapse toggle for the thinking panel baked into the final message
     const th = div.querySelector('.thinking');
