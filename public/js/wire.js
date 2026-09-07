@@ -9,8 +9,11 @@ import { closePreview, detectKind, renderSpace } from './space.js';
 import { curGroupData, curGroupId, curTab, groupSearch, renderGroups, setCurTab, setGroupSearch } from './state.js';
 import { findAgent } from './status.js';
 import { wizBack, wizConnectConfirm, wizOnboardDiscovered, wizSave } from './wizard.js';
+import { applyI18n, getLang, setLang } from './i18n.js';
 
 // ---------------- wire up ----------------
+$('#btnLang').onclick = () => setLang(getLang() === 'zh' ? 'en' : 'zh');
+applyI18n();
 $('#btnNewGroup').onclick = async () => {
   const name = prompt('新群名称', '新群'); if (!name) return;
   const g = await api.createGroup(name, []);

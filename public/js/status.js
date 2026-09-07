@@ -3,11 +3,12 @@ import { API, api, bump, on, watchSse } from './api.js';
 import { $, $$, esc } from './core.js';
 import { toast } from './modals.js';
 import { scheduleRegRefresh } from './settings.js';
+import { t } from './i18n.js';
 
 // ---------------- traffic lights: live agent status ----------------
 // backend states: busy (red) / error (yellow) / idle (green) / offline (dark)
 // asking (purple) = the agent asked the user something and is waiting on it
-export const ST_LABEL = { busy: '执行中', error: '上次失败', idle: '空闲', offline: '离线', asking: '等你回答' };
+export const ST_LABEL = () => ({ busy: t('stBusy'), error: t('stError'), idle: t('stIdle'), offline: t('stOffline'), asking: t('stAsking') });
 export let statusMap = {};
 export let statusSrc = null;
 
@@ -43,7 +44,7 @@ export const avHtml = (a, cls) => {
 export function trafficHtml(id, onAvatar) {
   const s = stateOf(id);
   const cls = 'traffic' + (onAvatar ? ' on-avatar' : ' lg');
-  return `<span class="${cls}" data-s="${s}" data-agent="${esc(id)}" title="${esc(id)} · ${ST_LABEL[s]}"><i></i><i></i><i></i></span>`;
+  return `<span class="${cls}" data-s="${s}" data-agent="${esc(id)}" title="${esc(id)} · ${ST_LABEL()[s]}"><i></i><i></i><i></i></span>`;
 }
 
 export function paintAllTraffic() {
@@ -51,7 +52,7 @@ export function paintAllTraffic() {
     const id = el.dataset.agent;
     const s = stateOf(id);
     el.dataset.s = s;
-    el.title = `${(findAgent(id) || { name: id }).name} · ${ST_LABEL[s]}`;
+    el.title = `${(findAgent(id) || { name: id }).name} · ${ST_LABEL()[s]}`;
   });
   if (taskAgentId) refreshTaskPop();
 }
@@ -97,7 +98,7 @@ export function refreshTaskPop() {
   const secs = st.since ? Math.max(0, Math.round((Date.now() - st.since) / 1000)) : 0;
   const running = s === 'busy';
   p.innerHTML = `
-    <div class="tp-head">${trafficHtml(taskAgentId)}<span>${esc(a.name)}</span><span class="st">${ST_LABEL[s]}</span></div>
+    <div class="tp-head">${trafficHtml(taskAgentId)}<span>${esc(a.name)}</span><span class="st">${ST_LABEL()[s]}</span></div>
     ${st.preview
       ? `<div class="tp-prev">${esc(st.preview)}</div>`
       : `<div class="tp-prev">${running ? '（该 agent 未上报任务内容）' : '当前没有执行中的任务'}</div>`}

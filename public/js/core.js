@@ -1,4 +1,5 @@
 // split of public/app.js (original section comment preserved below)
+import { t } from './i18n.js';
 export const $ = (s, r = document) => r.querySelector(s);
 export const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 export const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -176,8 +177,8 @@ export const dayLabel = (ts) => {
   const now = new Date();
   const sod = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
   const diff = Math.round((sod(now) - sod(d)) / 86400000);
-  if (diff <= 0) return '今天';
-  if (diff === 1) return '昨天';
+  if (diff <= 0) return t('today');
+  if (diff === 1) return t('yesterday');
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 };
 export const senderKey = (m) => m.sender === 'user' ? 'user' : m.sender === 'system' ? 'sys' : ('agent:' + (m.agentId || ''));

@@ -1,5 +1,6 @@
 // split of public/app.js (original section comment preserved below)
 import { API, api } from './api.js';
+import { t } from './i18n.js';
 import { resetChatPane, selectGroup } from './center.js';
 import { $, esc, ic } from './core.js';
 import { notifyOn, ping, setNotifyOn, setSoundOn, soundOn } from './flags.js';
@@ -34,29 +35,29 @@ export function delegationRow(settings) {
 // Adapter classes (A/B/C/D/E/W) are an internal detail — they are chosen by
 // the backend probe and never shown in the UI.
 export const LOCAL_CAPABLE = new Set(['A', 'C', 'D', 'E', 'G', 'W']);
-export const capabilityOf = (type) => (LOCAL_CAPABLE.has(type) ? '可操作本机' : '仅云端');
+export const capabilityOf = (type) => (LOCAL_CAPABLE.has(type) ? t('capLocal') : t('capCloud'));
 export const capClass = (type) => (LOCAL_CAPABLE.has(type) ? 'local' : 'cloud');
 // 接入类型小标签：WIZ_TYPES 的简短名，hover 显示完整说明。
-export const TYPE_LABELS = { A: '本地服务', W: '桌面客户端', E: 'MCP 服务', G: 'CLI 工具', C: '文件桥', D: '桌面转发', B: '模型 API' };
-export const typeLabelOf = (t) => TYPE_LABELS[t] || '其他';
+export const TYPE_LABELS = { A: 'typeA', W: 'typeW', E: 'typeE', G: 'typeG', C: 'typeC', D: 'typeD', B: 'typeB' };
+export const typeLabelOf = (ty) => { const k = TYPE_LABELS[ty]; return k ? t(k) : t('typeOther'); };
 export const typeDescOf = (t) => { const w = WIZ_TYPES.find((x) => x.key === t); return w ? w.label : ''; };
 // 按真实 config 判断实际接入通道（比类型键更准确：如 WorkBuddy 类型键是 W，
 // 但本机走 cliPath 即 CLI 通道）。
 export const channelOf = (a) => {
   const c = a.config || {};
-  if (c.cliCmd || c.cliPath) return 'CLI 工具';
-  if (c.mcpServer) return 'MCP 服务';
-  if (c.bridge) return '桌面转发';
-  if (c.ports && c.ports.length) return '本地服务';
-  if (c.localDir) return '文件桥';
-  if (c.baseURL || c.apiBaseUrl) return '模型 API';
-  return typeLabelOf(a.adapterType);
+  if (c.cliCmd || c.cliPath) return 'typeG';
+  if (c.mcpServer) return 'typeE';
+  if (c.bridge) return 'typeD';
+  if (c.ports && c.ports.length) return 'typeA';
+  if (c.localDir) return 'typeC';
+  if (c.baseURL || c.apiBaseUrl) return 'typeB';
+  return TYPE_LABELS[a.adapterType] || 'typeOther';
 };
 // 接入标签的能力排序（从强到弱）：以"操作本地电脑的能力"为核心标准
 // （做任何项目都依赖操作本机能力）。本地程序/协议通道 > 弱通道的本机客户端
 // > 纯工具 > 纯云端模型。归类不写死：channelOf 按实际 config 通道判断，
 // 豆包/Codex 等以后走 CLI/ACP 时会自动落到对应档位。
-export const CAP_ORDER = { '本地服务': 6, 'CLI 工具': 5, '桌面客户端': 5, '桌面转发': 4, 'MCP 服务': 3, '模型 API': 2, '文件桥': 1 };
+export const CAP_ORDER = { typeA: 6, typeG: 5, typeW: 5, typeD: 4, typeE: 3, typeB: 2, typeC: 1 };
 export const capRank = (a) => CAP_ORDER[channelOf(a)] || 0;
 export let registrySort = localStorage.getItem('zjl_registry_sort') === 'cap' ? 'cap' : 'default'; // 'default' | 'cap'
 
@@ -83,7 +84,7 @@ export function agentCard(a) {
       <span class="ac-avhead">${avHtml(a)}</span>
       <span class="ac-name">${esc(a.name)}</span>${trafficHtml(a.id)}
       <span class="ac-cap ${capClass(a.adapterType)}">${capabilityOf(a.adapterType)}</span>
-      <span class="ac-type" title="${esc(typeDescOf(a.adapterType))}">${channelOf(a)}</span>
+      <span class="ac-type" title="${esc(typeDescOf(a.adapterType))}">${t(channelOf(a))}</span>
       <label class="toggle" title="${swTitle}"><input type="checkbox" ${swOn ? 'checked' : ''} /><i></i></label>
       <span class="ac-edit">${ic('chevdown', 13, 13)}</span>
     </div>

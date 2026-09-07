@@ -3,6 +3,7 @@ import { api, on, subscribe } from './api.js';
 import { $, USER, dayLabel, esc, fmtTime, ic, lastMsg, mdEsc, renderMd, senderKey, setLastMsg, setStickBottom, stickBottom, syncStick } from './core.js';
 import { openAgentCard, openCtxMenu, toast } from './modals.js';
 import { capabilityOf, renderRegistry } from './settings.js';
+import { t } from './i18n.js';
 import { closePreview, renderSpace } from './space.js';
 import { curGroupData, curGroupId, renderGroups, setCurGroupData, setCurGroupId } from './state.js';
 import { avHtml, findAgent, openTaskPop, paintAllTraffic, refreshAgents, trafficHtml } from './status.js';
@@ -160,7 +161,7 @@ export let windowCount = PAGE_SIZE;
 export function renderMessages(g, jump = true) {
   const box = $('#messages'); box.innerHTML = '';
   const msgs = g.messages || [];
-  if (!msgs.length) { box.innerHTML = '<div class="empty">还没有消息，发一条试试</div>'; return; }
+  if (!msgs.length) { box.innerHTML = `<div class="empty">${t('emptyChat')}</div>`; return; }
   setLastMsg({ day: '', key: null, ts: 0 }); // fresh grouping state per render
   const hidden = Math.max(0, msgs.length - windowCount);
   if (hidden > 0) {
@@ -307,7 +308,7 @@ export function buildMsgEl(m, thinking) {
       div.dataset.mid = m.id; return div;
     }
     div.className = 'msg system';
-    div.innerHTML = `<div class="sys-badge">${ic('bell', 10, 10)} 系统通知</div><div class="bubble sys-bubble">${renderMd(m.text)}</div>`;
+    div.innerHTML = `<div class="sys-badge">${ic('bell', 10, 10)} ${t('sysNotice')}</div><div class="bubble sys-bubble">${renderMd(m.text)}</div>`;
   } else {
     const isConcl = !!(m.meta && m.meta.consensusConclusion);
     const tag = isConcl ? `<span class="concl-tag">${ic('flag', 11, 11)} 共识结论</span>` : '';
@@ -604,12 +605,12 @@ export function setTaskMode(on) {
   if (tmBtn) {
     tmBtn.classList.toggle('active', on);
     tmBtn.title = on
-      ? '派工模式已开启：消息将生成派工单，独占分派（再点一次退出，回到问答聊天）'
-      : '派工开关（当前关闭）：关闭时 @ 可操作成员仅问答聊天，不会执行本地操作；开启后消息变成派工单，独占分派给选中的执行 agent';
+      ? t('taskOnTitle')
+      : t('taskOffTitle');
   }
   $('#input').placeholder = on
-    ? '描述要执行的任务（将生成派工单，独占分派）…'
-    : '输入消息，@ 成员问答聊天…（要派单先点右侧派工按钮；Enter 发送，Shift+Enter 换行）';
+    ? t('taskOnPh')
+    : t('taskOffPh');
 }
 
 // ---------------- stage engine UI (batch B) ----------------
