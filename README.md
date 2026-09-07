@@ -3,84 +3,88 @@
 [![CI](https://github.com/zjl1989-li/Tmesh/actions/workflows/ci.yml/badge.svg)](https://github.com/zjl1989-li/Tmesh/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**把你手上所有的 AI agent 拉进同一个微信群。** DSH、DeepSeek、WorkBuddy/CodeBuddy、MCP server、桌面应用——不管它们开不开 API，都能进群、被 @、交任务、回产物。
+**Put every AI agent you own into one group chat.** DSH, DeepSeek, WorkBuddy/CodeBuddy, MCP servers, desktop apps, local CLIs — whether or not they expose an API, they can join a group, get @-mentioned, take tasks, and ship artifacts back.
 
-> 一个群 = 多个 agent + 你。一个群 = 一个项目：会话记忆按群隔离，永不串味。
+> One group = multiple agents + you. One group = one project: session memory is isolated per group and never bleeds.
 
-## 为什么不一样
+[English](README.md) | [简体中文](README.zh-CN.md)
 
-市面上把 agent 凑在一起的工具，几乎都只接「有官方 API 的」。Tmesh 的核心是一套**闭源 agent 桥接层**：
+## What makes it different
 
-| 接入面 | 机制 | 例子 |
+Tools that assemble agents almost always only accept "official-API" ones. Tmesh's core is a **closed-source agent bridging layer**:
+
+| Surface | Mechanism | Example |
 |---|---|---|
-| 自托管 RPC | 原生 session API，事件流实时回传 | [DSH](https://github.com/zjl1989-li/dsh-harness-zh) 无窗口进群 |
-| 模型 API | OpenAI 兼容接口 | DeepSeek / 任意兼容网关 |
-| 闭源桌面 ACP | 驱动桌面应用的 ACP 远控服务 | WorkBuddy（腾讯 CodeBuddy） |
-| 闭源 CLI-Key | 官方 API key + CLI headless | CodeBuddy CLI |
-| 文件桥 | 纯文件收发，零侵入、最稳 | 任何能读写本地文件夹的产品 |
-| MCP / A2A / AG-UI | 标准协议接入 | MCP server、开放协议 agent |
-| 桌面 GUI | 自动拉起 + 文件桥回传产物 | 本地桌面应用 |
-| 插件 | `adapters.d/` 放一个文件夹即接入新 agent | [示例插件](server/adapters.d/example/) |
+| Self-hosted RPC | Native session API with live event streams | [DSH](https://github.com/zjl1989-li/dsh-harness-zh) joins a group headlessly |
+| Model API | OpenAI-compatible endpoints | DeepSeek / any compatible gateway |
+| Closed-source desktop ACP | Drives desktop apps via ACP remote control | WorkBuddy (Tencent CodeBuddy) |
+| Closed-source CLI | Official API key + CLI headless mode | CodeBuddy CLI |
+| **Local CLI agent** | Spawns a local CLI per turn (probe incl. one real roundtrip) | `codex exec` through a local relay |
+| File bridge | Pure file drop/pickup — zero intrusion, most reliable | Any product that can read/write a local folder |
+| MCP / A2A / AG-UI | Standard protocol adapters | MCP servers, open-protocol agents |
+| Desktop GUI | Auto-launch + file-bridge artifact return | Local desktop apps |
+| Plugins | Drop a folder into `adapters.d/` to add a new agent | [Example plugin](server/adapters.d/example/) |
 
-加上**记忆引擎**，它不只是转发消息：
+Plus a **memory engine** — it's not just message forwarding:
 
 ```
-对话流水(L1, 按群隔离) --蒸馏--> 知识库(L2, Obsidian .md 本地仓)
-知识库(L2) --检索注入--> 每轮上下文(L0, 带 token 预算)
+Conversation stream (L1, isolated per group) --distill--> Knowledge base (L2, local Obsidian .md)
+Knowledge base (L2) --recall-inject--> Per-turn context (L0, char budget)
 ```
 
-- **L0 工作记忆**：上下文按 `ctxBudgetChars` 预算裁剪，超长的老对话自动瘦身，token 不再失控
-- **L1 情景记忆**：适配器实例按 `(agent, 群)` 隔离——一个群一个项目，跨群永不串味
-- **L2 语义记忆**：一键蒸馏（顶栏漏斗图标）把群聊结论沉淀成 Obsidian 笔记，同名追加日期小节——**沉淀，不堆叠，不硬删**；共识结论自动入库
-- **技能库 / 权限库**：技能 JSON 声明式注册；权限按「群 × agent × 能力」授权，默认拒绝、全量审计
+- **L0 working memory**: context is trimmed to a `ctxBudgetChars` budget; old turns are folded away before tokens run wild. `/clear` in a group resets the model context instantly (the transcript stays visible — only what agents see is cut).
+- **L1 episodic memory**: adapter instances are keyed by `(agent, group)` — one group, one project, no cross-talk.
+- **L2 semantic memory**: one-click distillation (funnel icon in the top bar) settles group conclusions into Obsidian notes, appending dated sections by title — accumulate, don't stack, never hard-delete. Consensus conclusions auto-archive.
+- **Skills / Permissions**: skills register declaratively as JSON; permissions are granted per (group × agent × capability), deny-by-default, fully audited.
+- **Usage ledger**: per-agent tokens + turns per day/month — API adapters report prompt/completion splits, CLI agents report their grand total, and each agent card shows today/month at a glance with threshold warnings.
 
-## 快速开始
+## Quick start
 
-要求：Node.js ≥ 18。无 npm install、无数据库、无 Docker。
+Requires Node.js ≥ 18. No `npm install`, no database, no Docker.
 
 ```bash
 git clone https://github.com/zjl1989-li/Tmesh.git
 cd tmesh
-cp .env.example .env   # 按需填入 DEEPSEEK_API_KEY / CODEBUDDY_API_KEY
+cp .env.example .env   # fill in DEEPSEEK_API_KEY / CODEBUDDY_API_KEY as needed
 node server/server.mjs
-# 打开 http://127.0.0.1:8787
+# open http://127.0.0.1:8787
 ```
 
-系统托盘常驻（可选，Windows + PowerShell 5.1）：运行 `desktop/tray.ps1`，右键托盘图标打开/退出，内置 30 秒看门狗自动重启服务。
+System-tray resident mode (optional, Windows + PowerShell 5.1): run `desktop/tray.ps1`. Right-click the tray icon to open/exit; a 30s watchdog restarts the service automatically.
 
-**应用内更新**：设置弹窗底部一键检查 GitHub 最新 release；有新版可直接在 UI 内安全更新（拒绝脏工作区 / 分叉历史，fast-forward-only + 自重启），本地改动永不被覆盖。
+**In-app updates**: check the latest GitHub release from the settings dialog; if a new version exists you can update safely inside the UI (rejects dirty worktrees / forked history, fast-forward-only + self-restart — local changes are never overwritten).
 
-## 三库（左侧栏）
+## The three libraries (left sidebar)
 
-- **资料库**：检索 / 预览 / 删除沉淀笔记（Obsidian `.md` 本地仓，`server/kb/`，直接用 Obsidian 打开这个文件夹就是你的知识库）
-- **技能库**：声明式技能清单，agent 按任务调用；加技能 = 改 JSON，不改代码
-- **权限库**：谁在哪个群能用什么能力，默认拒绝，授权 / 撤销 / 审计轨迹一目了然
+- **Knowledge base**: search / preview / delete distilled notes (local Obsidian `.md` repo under `server/kb/` — open that folder in Obsidian and it *is* your knowledge base)
+- **Skills**: declarative skill manifests agents can invoke per task; adding a skill = editing JSON, not code
+- **Permissions**: who can use what, in which group. Deny by default; grant / revoke / audit trails at a glance
 
-## 架构速览
+## Architecture at a glance
 
 ```
-server/              零依赖 Node ESM 后端
-  server.mjs           HTTP 服务（REST + SSE + 静态资源 + 图片代理 + 安全加固）
-  store.mjs            JSON 存储（内存 + 快照 + 损坏保护 + 头像落盘）
-  bus.mjs              消息总线（@提及路由、按群隔离的适配器实例、L0 预算、recall 注入）
-  adapters.mjs         八类内置适配器 + 插件加载器（adapters.d/）
+server/              zero-dependency Node ESM backend
+  server.mjs           HTTP service (REST + SSE + static files + image proxy + hardening)
+  store.mjs            JSON store (in-memory + snapshot + corruption guard + avatar offload)
+  bus.mjs              message bus (@-mention routing, per-group adapters, L0 budget, recall)
+  adapters.mjs         eight built-in adapter classes + plugin loader (adapters.d/)
   memory/
-    knowledge.mjs        资料库（Obsidian .md，沉淀式写入 + 关键词检索）
-    skills.mjs           技能库（skills.json 声明式注册）
-    acl.mjs              权限库（fail-closed + 审计轨迹）
-    distill.mjs          蒸馏管（L1→L2：群摘要 / 钉住消息 → KB 笔记）
-  adapters.d/            插件适配器目录（plugin.json 清单 + module，见 example/）
-public/              纯静态前端（原生 JS，无框架；SVG 图标，无 emoji）
-desktop/             托盘管理器（PowerShell WinForms）
-tests/               node:test 单元测试（隔离 / 三库 / 插件 / 记忆引擎）
+    knowledge.mjs        knowledge base (Obsidian .md, sediment-style writes + search)
+    skills.mjs           skills (declarative skills.json)
+    acl.mjs              permissions (fail-closed + audit trail)
+    distill.mjs          distiller (L1→L2: group digests / pinned messages → KB notes)
+  adapters.d/            plugin adapter dir (plugin.json manifest + module, see example/)
+public/              pure static frontend (vanilla JS, no framework; SVG icons, no emoji)
+desktop/             tray manager (PowerShell WinForms)
+tests/               node:test unit tests (isolation / libraries / plugins / memory engine)
 ```
 
-- 服务只绑定 `127.0.0.1`，带 Host 头校验（防 DNS 重绑）、SSRF 拦截与静态路径穿越防护
-- 所有运行时数据在 `server/data.json`（首次启动自动生成），运行时数据均不入库
+- The server binds `127.0.0.1` only, with Host-header checks (DNS-rebinding), SSRF interception, and static path-traversal protection
+- All runtime data lives in `server/data.json` (auto-created on first boot); runtime data never leaves the machine
 
-## 写一个插件适配器
+## Write a plugin adapter
 
-不改一行核心代码，接入任何新 agent：
+Plug in any new agent without touching core code:
 
 ```
 server/adapters.d/my-agent/
@@ -88,20 +92,20 @@ server/adapters.d/my-agent/
   adapter.mjs   → export default class { constructor(agent) meta() ping() send() }
 ```
 
-之后任何 `config: { "myAgent": {...} }` 的 agent 自动走你的适配器。完整可运行的参考实现见 [`server/adapters.d/example/`](server/adapters.d/example/)。
+Any agent with `config: { "myAgent": {...} }` then routes through your adapter. See the fully working reference at [`server/adapters.d/example/`](server/adapters.d/example/).
 
-## 测试
+## Tests
 
 ```bash
-npm test           # 全量回归（脚本 + 单测，30+ 用例，CI 矩阵 Node 18/20/22 × Ubuntu/Windows）
-npm run test:unit  # node:test 单元测试
+npm test           # full regression (scripts + unit tests, 40+ cases; CI matrix Node 18/20/22 × Ubuntu/Windows)
+npm run test:unit  # node:test unit tests
 ```
 
-## 安全提示
+## Security notes
 
-- 请勿将服务端口暴露到公网；如需局域网访问，请自行加反代与鉴权
-- 各 agent 的 API Key 通过 `.env` 或 agent 配置注入，注意不要提交到仓库
-- 知识库默认落本地 `server/kb/`；如自行接入云后端（如 ima），敏感记忆请勿上云
+- Do not expose the server port to the public internet; for LAN access, add a reverse proxy and auth yourself
+- Agent API keys are injected via `.env` or agent config — never commit them
+- The knowledge base lands in local `server/kb/` by default; if you wire in a cloud backend yourself, keep sensitive memories off-cloud
 
 ## License
 
