@@ -992,6 +992,15 @@ body.light::after { opacity: .03; }
   #drawerToggle { display: flex; left: 10px; right: auto; }
   /* the open drawer (z60) covers the toggle (z45) - keep it tappable above */
   body.drawer-open #drawerToggle { z-index: 70; }
+  /* explicit close button inside the drawer - foolproof on touch devices */
+  #drawerClose {
+    display: none; position: absolute; top: 9px; right: 10px; z-index: 62;
+    width: 32px; height: 32px; border-radius: 50%;
+    border: 1px solid var(--border); background: var(--panel3); color: var(--muted);
+    font-size: 17px; line-height: 1; align-items: center; justify-content: center; cursor: pointer;
+  }
+  #drawerClose:active { color: var(--accent); border-color: var(--accent); }
+  body.drawer-open #drawerClose { display: flex; }
   /* comfortable touch targets */
   button, .stab, .group-item, .lib-row, .ask-opt { min-height: 34px; }
   .group-item { padding: 9px 10px; }

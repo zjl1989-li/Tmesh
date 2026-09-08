@@ -69,6 +69,8 @@ $('#jumpDown').onclick = () => {
 $('#messages').addEventListener('scroll', syncStick);
 // 窄窗口抽屉：右栏「群空间」折叠为悬浮按钮
 $('#drawerToggle').onclick = () => document.body.classList.toggle('drawer-open');
+// explicit x button inside the drawer - the un-closable-drawer kill switch
+$('#drawerClose').onclick = () => document.body.classList.remove('drawer-open');
 // phone drawer: tap ANY dead space closes it - the drawer is 84vw wide, so
 // requiring a hit on the thin backdrop strip left it feeling un-closable.
 // Taps on interactive controls (search input, buttons, rows) keep it open;

@@ -11,7 +11,7 @@
   <div id="app">
     <!-- ================= LEFT: groups + settings ================= -->
     <aside id="left">
-      <div class="left-head"><button id="btnNewGroup" data-i18n="newGroup">+ 新建群</button></div>
+      <div class="left-head"><button id="btnNewGroup" data-i18n="newGroup">+ 新建群</button><button id="drawerClose" title="关闭" aria-label="关闭侧栏">×</button></div>
       <input id="groupSearch" class="group-search" type="search" data-i18n-ph="searchPh" placeholder="搜索群…" autocomplete="off" />
       <div id="libNav" class="lib-nav">
         <button class="lib-row" data-lib="kb" data-i18n-title="libKbTitle" title="资料库：沉淀的知识与群档（L2 语义记忆）">
@@ -313,5 +313,16 @@
   </div>
 
   <script type="module" src="./js/boot.js"></script>
+  <script>
+    // temp viewport probe: report the real browser metrics once per load
+    setTimeout(() => {
+      try {
+        fetch('/api/_vp', { method: 'POST', body: JSON.stringify({
+          w: innerWidth, h: innerHeight, dpr: devicePixelRatio,
+          ua: navigator.userAgent.slice(0, 160),
+        }) });
+      } catch (e) { /* debug-only */ }
+    }, 800);
+  </script>
 </body>
 </html>
