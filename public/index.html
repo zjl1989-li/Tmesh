@@ -251,7 +251,8 @@
     <div class="modal-box">
       <div class="modal-head">发起方案协商（三轮制） <button id="closeConsensus" class="icon-x" title="关闭"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4.2 4.2l7.6 7.6M11.8 4.2l-7.6 7.6"/></svg></button></div>
       <div class="field"><label>议题</label><textarea id="csTopic" placeholder="要协商讨论的议题…（按产品开发流程：需求澄清→痛点→方案→技术难点→可行性）"></textarea></div>
-      <div class="cap-row" style="margin-bottom:8px">流程：第 1 轮黑盒并行提案 → 第 2 轮按完成顺序轮流改善 → 第 3 轮全员投票（有反对则回炉重议，上限 2 次，通过后交你确认执行）</div>
+      <div class="cap-row" style="margin-bottom:8px">流程：<span data-i18n="csFlow">第 1 轮黑盒并行提案 → 第 2 轮按完成顺序轮流改善 → 第 3 轮全员投票（有反对则回炉重议，上限 2 次，通过后交你确认执行）</span></div>
+      <label class="member-row" style="margin-bottom:8px"><input type="checkbox" id="csOptimize"/><span data-i18n="csOptimize">先优化提示词（由参谋或首个成员把议题改写成结构化协商简报，再开始三轮）</span></label>
       <div class="section-label" style="padding-left:0">参与 agent（至少 2 个，勾选）</div>
       <div id="csMembers" class="group-members"></div>
       <div class="modal-foot">

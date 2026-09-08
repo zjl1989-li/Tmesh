@@ -22,6 +22,7 @@
 // Pure ESM, zero dependencies, ASCII only (content may be CJK).
 import { dispatch } from './bus.mjs';
 import { abort as abortAgent } from './runtime.mjs';
+import { memberWithRole } from './roles.mjs';
 
 const MAX_CYCLES = 2;
 const OPPOSE_RE = /【\s*反对\s*】|^\s*反对[:：]/;
@@ -34,7 +35,7 @@ export function isOppose(text) {
 }
 
 // In-memory controls (one running deliberation per conversation).
-const controls = new Map(); // convId -> { paused, stopped }
+const controls = new Map(); // convId -> { paused, stopped, alive }
 
 export function deliberationControl(convId) {
   return controls.get(convId) || { paused: false, stopped: false };
@@ -51,6 +52,25 @@ const nameOf = (agents, id) => ((agents || []).find((a) => a.id === id) || { nam
 // Topic frame for R1: the product-development checklist the boss asked the
 // deliberation to follow (requirements -> pain points -> divergence ->
 // technical risks -> feasibility -> convergence).
+// Round-0 brief (boss's add-on): before any proposal, ONE member rewrites the
+// raw topic into a structured deliberation brief. The methodology (intent /
+// context / structure / convergence) is borrowed from prompt-optimizer's
+// engineering dimensions; the execution rides the existing dispatch pipe - no
+// external dependency, no extra adapter.
+export function optimizeInstruction(topic) {
+  return [
+    '你是本次协商开始前的「提示词优化师」，只做这一件事，然后停。',
+    '请把下面的原始议题改写成一份可直接交付各成员的高质量协商议题：',
+    '① 明确意图：原始议题到底要解决什么问题、成功的判断标准是什么；',
+    '② 补全上下文：必要的背景、约束、相关方；信息不足就做合理假设并标注「假设」；',
+    '③ 结构化：按 背景 / 目标 / 范围边界 / 交付物要求 分点列出；',
+    '④ 收敛：删掉空话，保留可执行、可投票的表述。',
+    '【输出格式】直接输出优化后的议题全文：不要解释、不要寒暄、不要代码块包裹。',
+    '',
+    `原始议题：${topic}`,
+  ].join('\n');
+}
+
 function r1Instruction(topic) {
   return [
     `议题：${topic}`,
@@ -107,6 +127,7 @@ export function setStage(conv, stage, emit, persist) {
  */
 export async function runDeliberation({
   conv, agents, topic, participantIds, emit, persist, recordTool, settings, recall, resume = false,
+  optimize = false,
 }) {
   if (!resume && conv.deliberation && conv.deliberation.active) throw new Error('该群已有协商进行中');
   const parts = (participantIds && participantIds.length
@@ -114,7 +135,7 @@ export async function runDeliberation({
     : (conv.memberIds || [])).map((id) => agents.find((a) => a.id === id)).filter(Boolean);
   if (parts.length < 2) throw new Error('协商至少需要 2 个参与 agent');
 
-  const ctrl = setControl(conv.id, { paused: false, stopped: false });
+  const ctrl = setControl(conv.id, { paused: false, stopped: false, alive: true });
   if (!resume) {
     conv.deliberation = {
       active: true, topic, cycle: 0, phase: 'round1', status: 'running',
@@ -123,6 +144,9 @@ export async function runDeliberation({
   } else {
     conv.deliberation.active = true;
     conv.deliberation.status = 'running';
+    // A resumed deliberation continues from the refined brief, not the raw
+    // topic - otherwise R2/R3 reruns would argue about the un-optimized text.
+    if (conv.deliberation.refinedTopic) topic = conv.deliberation.refinedTopic;
   }
   setStage(conv, 'discuss', emit, persist);
   emit('negotiation', { convId: conv.id, negotiation: conv.deliberation });
@@ -182,6 +206,10 @@ export async function runDeliberation({
       frame('round', r2Instruction(pos, order.length, rebased), { deliberation: 'r2', turn: id });
       try { await one(a); } catch (e) { if (!aborted_(e)) throw e; }
     }
+    // Capture the relay's final plan NOW: after R3 the same member's newest
+    // reply is their VOTE, and the confirm frame would otherwise quote the
+    // vote text as the "final plan" (pre-existing cosmetic bug).
+    conv.deliberation.finalPlan = lastReplyOf(conv, order[order.length - 1] || '');
     conv.deliberation.phase = 'round3';
     persist();
   };
@@ -219,6 +247,24 @@ export async function runDeliberation({
   };
 
   try {
+    // Round 0 (optional, non-resumable): the designated member rewrites the
+    // raw topic; R1+ run on the refined brief. Runs INSIDE the try so a
+    // stop/pause during optimization still hits the unwind in `finally`.
+    if (!resume && optimize) {
+      const advisor = memberWithRole(conv, agents, 'advisor');
+      const opt = parts.find((p) => p.id === advisor?.id) || parts[0];
+      await gate();
+      frame('round', optimizeInstruction(topic), { deliberation: 'r0', turn: opt.id });
+      try { await one(opt); } catch (e) { if (!aborted_(e)) throw e; }
+      const refined = lastReplyOf(conv, opt.id).trim();
+      if (refined.length > 40) {
+        topic = refined.slice(0, 8000);
+        conv.deliberation.refinedTopic = topic;
+        frame('round', `提示词已由 ${opt.name} 优化，后续三轮以下列议题为准：\n${topic}`, { deliberation: 'r0-refined' });
+      } else {
+        frame('control', '提示词优化未产出有效改写，按原始议题继续。', { deliberation: 'r0-skip' });
+      }
+    }
     let guard = 0;
     while (guard++ < 20) {
       const d = conv.deliberation;
@@ -230,8 +276,17 @@ export async function runDeliberation({
       else break; // 'confirm' handled by the HTTP confirm endpoint
     }
   } catch (e) {
-    if (!aborted_(e)) throw e;
+    if (!aborted_(e)) {
+      // A crashed deliberation must not wedge the group: an active=true with
+      // status running blocks every new start ("已有协商进行中") and, before
+      // this guard, no API could clear it. Close it out and say so.
+      conv.deliberation.active = false;
+      conv.deliberation.status = 'error';
+      sysMsg(conv, emit, persist, `协商异常终止：${e.message}。可修改议题重新发起。`, { deliberation: 'error' });
+      throw e;
+    }
   } finally {
+    ctrl.alive = false;
     if (ctrl.stopped || ctrl.paused) {
       conv.deliberation.status = 'paused';
       // Pause keeps the session resumable (active=true); stop closes it.
@@ -249,7 +304,8 @@ export async function runDeliberation({
 
   // Passed: hand the decision to the user (the confirm gate).
   if (conv.deliberation.status === 'passed') {
-    const plan = lastReplyOf(conv, conv.deliberation.order[conv.deliberation.order.length - 1] || '');
+    const plan = conv.deliberation.finalPlan
+      || lastReplyOf(conv, conv.deliberation.order[conv.deliberation.order.length - 1] || '');
     frame('confirm', [
       '方案已通过全员投票。最终方案如下：', '',
       plan.slice(0, 6000), '',
@@ -264,6 +320,17 @@ export async function controlDeliberation(conv, agents, action, payload, { emit,
   const d = conv.deliberation;
   if (!d) throw new Error('该群没有协商记录');
   if (action === 'stop') {
+    // If the engine loop is dead (crashed earlier, or wedged by a historical
+    // bug) there is nothing to unwind - finalize on the spot, otherwise the
+    // group stays blocked by "已有协商进行中" forever with no way out.
+    if (!deliberationControl(conv.id).alive) {
+      d.active = false;
+      d.status = 'terminated';
+      controls.delete(conv.id);
+      setStage(conv, 'idle', emit, persist);
+      sysMsg(conv, emit, persist, '协商已停止（引擎未在运行，直接清理状态）。', { deliberation: 'terminated' });
+      return { ok: true, note: '已停止并清理' };
+    }
     setControl(conv.id, { paused: false, stopped: true });
     for (const id of d.participants || []) { try { abortAgent(id); } catch { /* not running */ } }
     return { ok: true, note: '已中止' };

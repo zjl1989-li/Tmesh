@@ -92,7 +92,7 @@ if (!acquireLock()) {
 }
 process.on('exit', releaseLock);
 for (const sig of ['SIGINT', 'SIGTERM']) {
-  process.on(sig, () => { releaseLock(); process.exit(0); });
+  process.on(sig, () => { store.flushLedger(); releaseLock(); process.exit(0); });
 }
 
 // Load .env (optional, git-ignored) so CODEBUDDY_API_KEY etc. can live in a file
@@ -1314,6 +1314,7 @@ async function handleApi(req, res, url) {
     runDeliberation({
       conv: c, agents: store.getAgents(), topic: b.topic || '（未指定议题）',
       participantIds: b.participantIds,
+      optimize: !!b.optimize,
       emit, persist: () => store.save(),
       recordTool: (agentId, tool) => store.recordTool(agentId, tool),
       settings: store.getSettings(), recall: kbRecall,

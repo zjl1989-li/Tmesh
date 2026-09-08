@@ -197,7 +197,8 @@ export async function startConsensus() {
   if (!topic) { toast('请填写议题'); return; }
   const ids = $$('#csMembers input[type=checkbox]').filter((c) => c.checked).map((c) => c.dataset.id);
   if (ids.length < 2) { toast('至少选择 2 个参与 agent'); return; }
+  const optimize = !!$('#csOptimize')?.checked;
   $('#consensusModal').classList.add('hidden');
-  await api.deliberate(curGroupId, { topic, participantIds: ids });
-  toast('协商已启动：黑盒提案 → 轮流改善 → 投票');
+  await api.deliberate(curGroupId, { topic, participantIds: ids, optimize });
+  toast(optimize ? '协商已启动：提示词优化 → 黑盒提案 → 轮流改善 → 投票' : '协商已启动：黑盒提案 → 轮流改善 → 投票');
 }

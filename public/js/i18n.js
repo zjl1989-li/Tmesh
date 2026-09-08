@@ -31,6 +31,8 @@ const DICT = {
   atAll:           { zh: '@ 所有人', en: '@ everyone' },
   taskMode:        { zh: '派工', en: 'Dispatch' },
   taskModeOffTitle:{ zh: '派工开关（当前关闭）：关闭时 @ 可操作成员仅问答聊天，不会执行本地操作；开启后消息变成派工单，独占分派给选中的执行 agent', en: 'Dispatch toggle (off): @ capable members for Q&A only; on, messages become work orders assigned exclusively to the selected executor' },
+  csFlow:{ zh: '第 1 轮黑盒并行提案 → 第 2 轮按完成顺序轮流改善 → 第 3 轮全员投票（有反对则回炉重议，上限 2 次，通过后交你确认执行）', en: 'Round 1: parallel blind proposals → Round 2: relay improvement in completion order → Round 3: unanimous vote (dissent reopens the loop, max twice; passing hands the plan to you for confirmation)' },
+  csOptimize:{ zh: '先优化提示词（由参谋或首个成员把议题改写成结构化协商简报，再开始三轮）', en: 'Optimize the prompt first (an advisor - or the first member - rewrites the topic into a structured brief before the three rounds)' },
   usageTitle:      { zh: '消耗统计', en: 'Usage' },
   usageTitleBtn:   { zh: '消耗统计：所有 agent 的 token 与轮次台账', en: 'Usage: token & turn ledger across all agents' },
   usageNote:       { zh: 'tokens 为各 agent 上报的模型消耗；桥接类产品只计轮次（消耗在其产品内结算）。C 类与未上报的 turn 不计入 tokens。', en: 'Tokens are reported by each agent; bridge products count turns only (credit settles inside their own walls). C-class turns without token reports are not counted.' },

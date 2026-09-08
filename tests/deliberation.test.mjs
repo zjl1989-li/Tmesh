@@ -2,7 +2,7 @@
 // points that the engine relies on.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isOppose, deliberationControl } from '../server/deliberate.mjs';
+import { isOppose, deliberationControl, optimizeInstruction } from '../server/deliberate.mjs';
 import { ensureRoles } from '../server/roles.mjs';
 
 test('vote parsing: only explicit markers count as dissent', () => {
@@ -31,4 +31,14 @@ test('engine prerequisites: roles ensure an executor and a commander exist', () 
   // configuration for the dispatch engine to work
   assert.ok(Object.values(conv.memberRoles).includes('executor'));
   assert.ok(Object.values(conv.memberRoles).includes('advisor'));
+});
+
+test('optimizeInstruction: carries the raw topic and demands prompt-only output', () => {
+  const s = optimizeInstruction('hard stop loss execution');
+  assert.ok(s.includes('hard stop loss execution'));
+  // the optimizer must return ONLY the rewritten brief - runDeliberation
+  // takes the whole reply as the refined topic, so chatty output would
+  // poison every later round
+  assert.ok(s.includes('不要解释'));
+  assert.ok(s.includes('背景 / 目标 / 范围边界 / 交付物要求'));
 });

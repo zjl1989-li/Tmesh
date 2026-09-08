@@ -166,6 +166,19 @@ function mergeExternal() {
   }
 }
 
+// Ledger writes fire per agent message: a 4-agent group round can trigger 4+
+// full-file rewrites within seconds. Coalesce them - mark the timer, flush
+// once after 500ms of quiet (or on shutdown). Explicit save() calls stay
+// synchronous; only the bookkeeping path is debounced. Reads always see
+// memory state, so the only thing a crash within the window can lose is the
+// last few token counts - never conversations.
+let ledgerTimer = null;
+function scheduleLedgerFlush() {
+  if (ledgerTimer) return;
+  ledgerTimer = setTimeout(() => { ledgerTimer = null; save(); }, 500);
+  ledgerTimer.unref?.();
+}
+
 function save() {
   try {
     const m = mtimeOf(DATA);
@@ -239,7 +252,7 @@ export const store = {
     if (!agentId || !tool) return;
     const by = (state.toolStats[agentId] ||= {});
     by[tool] = (by[tool] || 0) + 1;
-    save();
+    scheduleLedgerFlush();
   },
   toolStatsOf: (agentId) => state.toolStats[agentId] || {},
   // Usage ledger, two gauges (boss's rule): tokens when the adapter can see
@@ -263,6 +276,14 @@ export const store = {
     }
     const days = Object.keys(by).sort();
     while (days.length > 60) delete by[days.shift()];
+    scheduleLedgerFlush();
+  },
+  // Sync flush for the shutdown path - the debounced counts must not die
+  // with the process.
+  flushLedger: () => {
+    if (!ledgerTimer) return;
+    clearTimeout(ledgerTimer);
+    ledgerTimer = null;
     save();
   },
   usageOf: (agentId) => state.tokenStats[agentId] || {},
