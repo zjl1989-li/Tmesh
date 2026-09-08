@@ -99,8 +99,13 @@ body.groups-fold #groupList { display: none; }
 .group-item .garch { font-size: 11px; color: var(--warn); display: inline-flex; align-items: center; }
 .left-foot { margin-top: auto; padding: 10px 12px; border-top: 1px solid var(--border); }
 .left-foot-row { display: flex; gap: 8px; align-items: stretch; }
-.left-foot-row .theme-toggle { flex: 0 0 30%; }
-.left-foot-row .settings-btn { flex: 0 0 70%; }
+/* three buttons share the row now (EN + theme + settings): theme keeps a
+   fixed slice, EN takes its natural width, settings absorbs the rest -
+   the old 30/70 split plus the EN button overflowed and squeezed the
+   settings label out of view */
+.left-foot-row .theme-toggle { flex: 0 0 26%; }
+.left-foot-row .settings-btn { flex: 1 1 auto; min-width: 0; }
+.left-foot-row .about-btn { flex: 0 0 auto; }
 .left-foot button { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--panel2); color: var(--text); cursor: pointer; font-size: 13px; }
 .left-foot button:hover { border-color: var(--accent); }
 /* theme switch: a vertical segmented sun/moon pill on the left (sun on top,
