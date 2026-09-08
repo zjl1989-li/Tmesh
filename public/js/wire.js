@@ -74,17 +74,22 @@ $('#drawerToggle').onclick = () => document.body.classList.toggle('drawer-open')
 // wire() - a thrown binding here silently disabled every later listener.
 const drawerCloseBtn = $('#drawerClose');
 if (drawerCloseBtn) drawerCloseBtn.onclick = () => document.body.classList.remove('drawer-open');
-// phone drawer: tap ANY dead space closes it - the drawer is 84vw wide, so
-// requiring a hit on the thin backdrop strip left it feeling un-closable.
-// Taps on interactive controls (search input, buttons, rows) keep it open;
-// group items fall through to their own click handler and close via this.
+const drawerRightCloseBtn = $('#drawerRightClose');
+if (drawerRightCloseBtn) drawerRightCloseBtn.onclick = () => document.body.classList.remove('right-open');
+// phone drawers (left + right): tap ANY dead space closes them - the drawer
+// is 84vw wide, so requiring a hit on the thin backdrop strip left it
+// feeling un-closable. Taps on interactive controls keep it open; group
+// items fall through to their own click handler and close via this.
 document.addEventListener('click', (e) => {
-  if (!document.body.classList.contains('drawer-open')) return;
+  const body = document.body;
   if (e.target.closest('#drawerToggle')) return; // its own onclick toggles
-  const inLeft = e.target.closest('#left');
-  if (!inLeft) { document.body.classList.remove('drawer-open'); return; }
-  const interactive = e.target.closest('button, input, textarea, select, a, label, .stab, .lib-row, .ask-opt, .plus-menu');
-  if (!interactive) document.body.classList.remove('drawer-open');
+  const openL = body.classList.contains('drawer-open');
+  const openR = body.classList.contains('right-open');
+  if (!openL && !openR) return;
+  const drawerSel = openL ? '#left' : '#right';
+  const inside = e.target.closest(drawerSel);
+  const interactive = inside && e.target.closest('button, input, textarea, select, a, label, .stab, .lib-row, .ask-opt, .plus-menu');
+  if (!inside || !interactive) body.classList.remove('drawer-open', 'right-open');
 });
 // 发送对象下拉：按当前选中项收窄宽度
 $('#sendTarget').addEventListener('change', () => {
@@ -215,6 +220,12 @@ export function makeFoldBtn(btn, side) {
   btn.addEventListener('mousedown', (e) => e.stopPropagation()); // don't start a drag
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
+    // phone tier (<=480px): the right rail is a slide-in drawer, not a
+    // foldable column - repurpose the fold button as its open/close toggle
+    if (side === 'right' && matchMedia('(max-width: 480px)').matches) {
+      document.body.classList.toggle('right-open');
+      return;
+    }
     const foldCls = side === 'left' ? 'left-fold' : 'right-fold';
     const folded = document.body.classList.toggle(foldCls);
     btn.classList.toggle('folded', folded);

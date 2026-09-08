@@ -52,7 +52,7 @@ textarea:focus-visible, input:focus-visible, select:focus-visible { outline: non
 /* form controls do not inherit font-family by default in Chromium - force the
    app font everywhere so inputs/selects/buttons match the surrounding UI */
 button, input, select, textarea { font-family: inherit; }
-#app { display: flex; height: 100vh; width: 100vw; overflow: hidden; --left-w: 250px; --right-w: 320px; }
+#app { display: flex; height: 100vh; height: 100dvh; width: 100vw; overflow: hidden; --left-w: 250px; --right-w: 320px; }
 
 /* draggable gutter between columns: a hairline that turns accent on hover.
    Click-drag adjusts --left-w / --right-w; the fold button collapses/expands. */
@@ -1012,6 +1012,26 @@ body.light::after { opacity: .03; }
   /* iOS zooms into inputs smaller than 16px on focus */
   #input { font-size: 16px; }
   .composer { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+  /* 30/70 foot row overflows the 320px drawer by a few px - stack instead */
+  .left-foot-row { flex-direction: column; }
+  .left-foot-row .theme-toggle, .left-foot-row .settings-btn { flex: 0 0 auto; width: 100%; }
+  /* right rail as a slide-in drawer, toggled by the header fold button
+     (foldRight). display:none above is overridden here when open. */
+  body.right-open #right {
+    display: flex !important;
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 60;
+    width: min(84vw, 340px); flex-basis: auto;
+    animation: none;
+    box-shadow: -8px 0 24px rgba(0, 0, 0, .45);
+  }
+  body.right-open::after { content: ''; position: fixed; inset: 0; z-index: 55; background: rgba(0, 0, 0, .45); }
+  #drawerRightClose {
+    display: none; width: 28px; height: 26px; flex: 0 0 auto; margin-left: 8px;
+    border: 1px solid var(--border); border-radius: var(--r-sm);
+    background: var(--panel2); color: var(--muted);
+    font-size: 15px; line-height: 1; align-items: center; justify-content: center; cursor: pointer;
+  }
+  body.right-open #drawerRightClose { display: flex; }
   /* let the negotiation control bar wrap instead of overflowing */
   .header-actions, .delib-row { flex-wrap: wrap; }
   .modal-sheet, .modal-box { max-width: 96vw; }
