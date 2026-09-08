@@ -99,13 +99,10 @@ body.groups-fold #groupList { display: none; }
 .group-item .garch { font-size: 11px; color: var(--warn); display: inline-flex; align-items: center; }
 .left-foot { margin-top: auto; padding: 10px 12px; border-top: 1px solid var(--border); }
 .left-foot-row { display: flex; gap: 8px; align-items: stretch; }
-/* three buttons share the row now (EN + theme + settings): theme keeps a
-   fixed slice, EN takes its natural width, settings absorbs the rest -
-   the old 30/70 split plus the EN button overflowed and squeezed the
-   settings label out of view */
-.left-foot-row .theme-toggle { flex: 0 0 26%; }
-.left-foot-row .settings-btn { flex: 1 1 auto; min-width: 0; }
-.left-foot-row .about-btn { flex: 0 0 auto; }
+/* three buttons side by side, equal width (boss call). basis 0 matters:
+   width:100% from .left-foot button would otherwise become the flex basis
+   and blow the row up */
+.left-foot-row > button { flex: 1 1 0; min-width: 0; }
 .left-foot button { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--panel2); color: var(--text); cursor: pointer; font-size: 13px; }
 .left-foot button:hover { border-color: var(--accent); }
 /* theme switch: a vertical segmented sun/moon pill on the left (sun on top,
@@ -123,7 +120,12 @@ body.light .theme-toggle .tt-sun { background: var(--accent-soft); color: var(--
    hint was dropped per user feedback). */
 .left-foot .settings-btn { display: flex; align-items: center; gap: 8px; text-align: left; padding: 7px 9px; }
 .settings-btn .sb-ico { width: 24px; height: 24px; flex: 0 0 auto; border-radius: var(--r-sm); background: var(--panel3); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 13px; }
-.settings-btn .sb-title { font-size: 13px; font-weight: 500; white-space: nowrap; }
+/* settings card: icon + label. Equal-thirds foot row leaves ~47-65px per
+   button on desktop, too narrow for the label - icon-only there, with the
+   tooltip carrying the meaning; the 320px phone drawer (~93px per button)
+   shows the label again. */
+.settings-btn .sb-title { display: none; font-size: 13px; font-weight: 500; white-space: nowrap; }
+.left-foot .settings-btn { justify-content: center; }
 
 /* ---------- CENTER ---------- */
 /* min-height:0 + overflow:hidden 是 flex 滚动的关键：否则 .messages 会因
@@ -1020,6 +1022,8 @@ body.light::after { opacity: .03; }
   /* 30/70 foot row overflows the 320px drawer by a few px - stack instead */
   .left-foot-row { flex-direction: column; }
   .left-foot-row .theme-toggle, .left-foot-row .settings-btn { flex: 0 0 auto; width: 100%; }
+  /* ~93px per button in the drawer: the settings label fits again */
+  .settings-btn .sb-title { display: inline; }
   /* right rail as a slide-in drawer, toggled by the header fold button
      (foldRight). display:none above is overridden here when open. */
   body.right-open #right {

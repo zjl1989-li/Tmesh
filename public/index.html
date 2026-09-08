@@ -56,7 +56,7 @@
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13.2 9.6A5.6 5.6 0 1 1 6.4 2.8a4.6 4.6 0 0 0 6.8 6.8z"/></svg>
             </span>
           </button>
-          <button id="btnSettings" class="settings-btn">
+          <button id="btnSettings" class="settings-btn" title="设置" data-i18n-title="settings">
             <span class="sb-ico">
               <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2.5 4h6.2M12 4h1.5"/><path d="M2.5 8h1.8M7.3 8h6.2"/><path d="M2.5 12h4.8M10.5 12h3"/><circle cx="10.7" cy="4" r="1.4"/><circle cx="5.2" cy="8" r="1.4"/><circle cx="8.3" cy="12" r="1.4"/></svg>
             </span>
@@ -334,6 +334,13 @@
       } catch (e) { probe.cssRules = -2; }
       var lf = document.getElementById('left');
       if (lf) { var cs = getComputedStyle(lf); probe.leftPos = cs.position; probe.leftTf = String(cs.transform).slice(0, 30); }
+      // where did the right-rail toggle land? off-screen = invisible entry
+      var fr = document.getElementById('foldRight');
+      if (fr) {
+        var r = fr.getBoundingClientRect();
+        probe.fr = [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)].join(',');
+        probe.frOn = r.width > 0 && r.right > 0 && r.left < innerWidth;
+      }
       fetch('/api/_vp', { method: 'POST', body: JSON.stringify(Object.assign(probe, extra)) });
         } catch (e) { /* debug-only */ }
       };
