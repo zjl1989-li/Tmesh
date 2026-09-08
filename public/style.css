@@ -1021,6 +1021,12 @@ body.light::after { opacity: .03; }
   .composer { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
   /* ~93px per button in the drawer: the settings label fits again */
   .settings-btn .sb-title { display: inline; }
+  /* slim the chat header: avatars + dividers are the space hogs, every
+     button stays - especially the right-drawer toggle that used to get
+     pushed off-screen */
+  #chatHead { padding: 6px 10px; gap: 6px; }
+  #chatHead .avatars, #chatHead .ha-divider { display: none; }
+  #chatHead .head-actions { gap: 4px; }
   /* right rail as a slide-in drawer, toggled by the header fold button
      (foldRight). display:none above is overridden here when open. */
   body.right-open #right {
