@@ -1019,9 +1019,6 @@ body.light::after { opacity: .03; }
   /* iOS zooms into inputs smaller than 16px on focus */
   #input { font-size: 16px; }
   .composer { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
-  /* 30/70 foot row overflows the 320px drawer by a few px - stack instead */
-  .left-foot-row { flex-direction: column; }
-  .left-foot-row .theme-toggle, .left-foot-row .settings-btn { flex: 0 0 auto; width: 100%; }
   /* ~93px per button in the drawer: the settings label fits again */
   .settings-btn .sb-title { display: inline; }
   /* right rail as a slide-in drawer, toggled by the header fold button
