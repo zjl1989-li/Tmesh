@@ -69,13 +69,17 @@ $('#jumpDown').onclick = () => {
 $('#messages').addEventListener('scroll', syncStick);
 // 窄窗口抽屉：右栏「群空间」折叠为悬浮按钮
 $('#drawerToggle').onclick = () => document.body.classList.toggle('drawer-open');
-// phone drawer: tap the dim backdrop or a group name to close it
+// phone drawer: tap ANY dead space closes it - the drawer is 84vw wide, so
+// requiring a hit on the thin backdrop strip left it feeling un-closable.
+// Taps on interactive controls (search input, buttons, rows) keep it open;
+// group items fall through to their own click handler and close via this.
 document.addEventListener('click', (e) => {
   if (!document.body.classList.contains('drawer-open')) return;
-  if (e.target.closest('#drawerToggle')) return;
+  if (e.target.closest('#drawerToggle')) return; // its own onclick toggles
   const inLeft = e.target.closest('#left');
-  const hitGroup = inLeft && e.target.closest('.group-item');
-  if (!inLeft || hitGroup) document.body.classList.remove('drawer-open');
+  if (!inLeft) { document.body.classList.remove('drawer-open'); return; }
+  const interactive = e.target.closest('button, input, textarea, select, a, label, .stab, .lib-row, .ask-opt, .plus-menu');
+  if (!interactive) document.body.classList.remove('drawer-open');
 });
 // 发送对象下拉：按当前选中项收窄宽度
 $('#sendTarget').addEventListener('change', () => {

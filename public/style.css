@@ -990,6 +990,8 @@ body.light::after { opacity: .03; }
   body.drawer-open::after { content: ''; position: fixed; inset: 0; z-index: 55; background: rgba(0, 0, 0, .45); }
   #right, #resRight { display: none !important; }
   #drawerToggle { display: flex; left: 10px; right: auto; }
+  /* the open drawer (z60) covers the toggle (z45) - keep it tappable above */
+  body.drawer-open #drawerToggle { z-index: 70; }
   /* comfortable touch targets */
   button, .stab, .group-item, .lib-row, .ask-opt { min-height: 34px; }
   .group-item { padding: 9px 10px; }
