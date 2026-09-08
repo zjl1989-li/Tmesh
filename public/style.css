@@ -978,7 +978,12 @@ body.light::after { opacity: .03; }
    toggle reuses the drawer-open class for the LEFT side; the right rail
    stays hidden - open a real browser for the full three-column view). */
 @media (max-width: 480px) {
+  /* kill the railIn entrance animation here: its fill-mode both pins
+     transform:none forever, which overrides the off-canvas translateX
+     below (animation fill beats static declarations) and leaves the
+     drawer stuck covering the screen on real phones. */
   #left {
+    animation: none;
     position: fixed; top: 0; left: 0; bottom: 0; z-index: 60;
     width: min(84vw, 320px); flex-basis: auto;
     transform: translateX(-105%);

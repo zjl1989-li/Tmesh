@@ -319,11 +319,21 @@
     (function () {
       var report = function (extra) {
         try {
-          fetch('/api/_vp', { method: 'POST', body: JSON.stringify(Object.assign({
-            w: innerWidth, h: innerHeight, dpr: devicePixelRatio,
-            ua: navigator.userAgent.slice(0, 160),
-            drawerOpen: document.body.classList.contains('drawer-open'),
-          }, extra)) });
+          var probe = {
+        w: innerWidth, h: innerHeight, dpr: devicePixelRatio,
+        ua: navigator.userAgent.slice(0, 160),
+        drawerOpen: document.body.classList.contains('drawer-open'),
+        mq480: matchMedia('(max-width: 480px)').matches,
+        hasClose: !!document.getElementById('drawerClose'),
+        sheets: 0, cssRules: -1,
+      };
+      try {
+        var css = document.querySelector('link[href*="style.css"]');
+        if (css && css.sheet) { probe.sheets++; probe.cssRules = css.sheet.cssRules.length; }
+      } catch (e) { probe.cssRules = -2; }
+      var lf = document.getElementById('left');
+      if (lf) { var cs = getComputedStyle(lf); probe.leftPos = cs.position; probe.leftTf = String(cs.transform).slice(0, 30); }
+      fetch('/api/_vp', { method: 'POST', body: JSON.stringify(Object.assign(probe, extra)) });
         } catch (e) { /* debug-only */ }
       };
       window.onerror = function (msg, src, line, col) {
