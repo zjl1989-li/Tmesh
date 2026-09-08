@@ -314,15 +314,26 @@
 
   <script type="module" src="./js/boot.js"></script>
   <script>
-    // temp viewport probe: report the real browser metrics once per load
-    setTimeout(() => {
-      try {
-        fetch('/api/_vp', { method: 'POST', body: JSON.stringify({
-          w: innerWidth, h: innerHeight, dpr: devicePixelRatio,
-          ua: navigator.userAgent.slice(0, 160),
-        }) });
-      } catch (e) { /* debug-only */ }
-    }, 800);
+    // temp viewport + error probe: report real browser metrics and any JS
+    // error once per load - remote diagnosis for phone layout issues
+    (function () {
+      var report = function (extra) {
+        try {
+          fetch('/api/_vp', { method: 'POST', body: JSON.stringify(Object.assign({
+            w: innerWidth, h: innerHeight, dpr: devicePixelRatio,
+            ua: navigator.userAgent.slice(0, 160),
+            drawerOpen: document.body.classList.contains('drawer-open'),
+          }, extra)) });
+        } catch (e) { /* debug-only */ }
+      };
+      window.onerror = function (msg, src, line, col) {
+        report({ err: String(msg).slice(0, 200), at: String(src).split('/').pop() + ':' + line + ':' + col });
+      };
+      window.addEventListener('unhandledrejection', function (e) {
+        report({ rej: String(e.reason).slice(0, 200) });
+      });
+      setTimeout(function () { report({}); }, 800);
+    })();
   </script>
 </body>
 </html>
