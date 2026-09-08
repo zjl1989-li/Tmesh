@@ -1638,7 +1638,10 @@ function serveLocalImage(res, url) {
 function hostAllowed(h) {
   if (!h) return false;
   const bare = String(h).toLowerCase().replace(/:\d+$/, '').replace(/^\[|\]$/g, '');
-  return bare === 'localhost' || bare === '127.0.0.1' || bare === '::1';
+  if (bare === 'localhost' || bare === '127.0.0.1' || bare === '::1') return true;
+  // tailscale serve relays the ts.net Host through to us; the *.ts.net zone
+  // only resolves inside the tailnet, so it stays a localhost-tight guard.
+  return bare.endsWith('.ts.net');
 }
 
 const server = http.createServer((req, res) => {
