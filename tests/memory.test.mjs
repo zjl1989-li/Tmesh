@@ -28,6 +28,22 @@ test('knowledge: write + search + read roundtrip', () => {
   assert.equal(doc.meta.source, 'achat');
 });
 
+test('knowledge: CJK queries hit via 2-gram split (no-space languages)', () => {
+  const dir = join(tmp(), 'vault-cjk');
+  const kb = createKnowledge({ dir });
+  kb.write({ title: 'Group archive - stress test', body: '协商结论：硬止损执行是第一优先级。共识是止损优先。' });
+  // Before the 2-gram split this returned NOTHING: the whole query arrived
+  // as one term and only a note containing the exact string matched.
+  const hits = kb.search('协商结论');
+  assert.equal(hits.length, 1);
+  assert.ok(hits[0].score >= 3);            // all three grams present (exact phrase)
+  // partial gram match still recalls: 协商共识 shares 协商+商共 with the query
+  assert.ok(kb.search('协商共识')[0].score >= 2);
+  assert.ok(kb.search('止损').length === 1);      // 2-char CJK term, whole-token path
+  assert.ok(kb.search('kb协商').length === 1);    // mixed latin+CJK: grams never span the boundary
+  assert.ok(kb.search('nothing-xyz').length === 0);
+});
+
 test('knowledge: same-title write appends a dated section (distill, not overwrite)', () => {
   const dir = join(tmp(), 'vault');
   const kb = createKnowledge({ dir });

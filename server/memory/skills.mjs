@@ -18,7 +18,7 @@ export function createSkills({ file } = {}) {
     try {
       const parsed = JSON.parse(readFileSync(FILE, 'utf8'));
       cache = Array.isArray(parsed) ? parsed.filter((s) => s && s.id) : [];
-    } catch { cache = []; }   // missing/corrupt file = empty registry, never fatal
+    } catch (e) { if (existsSync(FILE)) console.error('[tmesh] skills.json corrupt, starting empty:', e?.message || e); cache = []; }   // missing file = empty registry, never fatal; corrupt file gets logged
     return cache;
   }
 

@@ -18,7 +18,9 @@ export function createAcl({ file } = {}) {
     try {
       const parsed = JSON.parse(readFileSync(FILE, 'utf8'));
       cache = Array.isArray(parsed) ? parsed.filter((g) => g && g.convId && g.agentId && g.cap) : [];
-    } catch { cache = []; }
+    // Fail-closed on a missing/corrupt file, but say so - a silently emptied
+    // grant list looks exactly like "all grants vanished" from the outside.
+    } catch (e) { if (existsSync(FILE)) console.error('[tmesh] acl.json corrupt, starting empty:', e?.message || e); cache = []; }
     return cache;
   }
 

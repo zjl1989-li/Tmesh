@@ -86,11 +86,28 @@ export function createKnowledge({ dir } = {}) {
     return { path: p, title: basename(p, MD), appended: existsSync(p) && text.length > header.length + body.length + 20 };
   }
 
-  // Keyword search over the vault. Fine for a few thousand notes; a semantic
-  // index would break the zero-dependency rule, so it stays out until there
-  // is a real need (and then arrives as another backend, not a rewrite).
+  // Keyword search over the vault. Chinese has no spaces, so a whole query
+  // like "协商结论" would otherwise arrive as ONE term and match nothing -
+  // CJK runs get split into overlapping 2-grams (协商/商结/结论) which recall
+  // fine for a few thousand notes. A semantic index would break the
+  // zero-dependency rule, so it stays out until there is a real need (and
+  // then arrives as another backend, not a rewrite).
+  function termsOf(q) {
+    const out = [];
+    for (const t of String(q || '').toLowerCase().split(/\s+/).filter(Boolean)) {
+      // Split mixed terms into their CJK and latin/digit runs first, so a
+      // gram never spans the boundary ("kb协商" must not yield "b协").
+      for (const r of t.match(/[\u4e00-\u9fff]+|[a-z0-9_]+/g) || []) {
+        if (/[\u4e00-\u9fff]/.test(r) && r.length > 2) {
+          for (let i = 0; i < r.length - 1; i++) out.push(r.slice(i, i + 2));
+        } else out.push(r);
+      }
+    }
+    return out;
+  }
+
   function search(q, { limit = 8 } = {}) {
-    const terms = String(q || '').toLowerCase().split(/\s+/).filter(Boolean);
+    const terms = termsOf(q);
     if (!terms.length) return [];
     const out = [];
     for (const f of readdirSync(vault)) {

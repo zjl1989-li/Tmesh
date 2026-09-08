@@ -239,7 +239,9 @@ export async function dispatch({
   // ignore it. Failure to recall must never fail the turn.
   let recalled = [];
   if (typeof recall === 'function' && prompt) {
-    try { recalled = (await recall(prompt) || []).slice(0, 3); } catch { recalled = []; }
+    // A dead recall must not kill the turn - but it must not be invisible
+    // either, or the boss wonders why answers stopped citing the vault.
+    try { recalled = (await recall(prompt) || []).slice(0, 3); } catch (e) { recalled = []; console.error('[tmesh] kb recall failed:', e?.message || e); }
   }
   const produced = [];
   // agentId -> the question this reply answers, if any. Read before dispatch so
