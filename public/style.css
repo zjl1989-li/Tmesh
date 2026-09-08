@@ -1031,8 +1031,9 @@ body.light::after { opacity: .03; }
   .modal-sheet, .modal-box { max-width: 96vw; }
 }
 
-/* right-rail drawer x button: hidden by default everywhere (desktop never
-   shows it - the drawer behavior itself only exists in the phone tier) */
+/* drawer x buttons: hidden by default everywhere (desktop never shows
+   them - the drawer behavior itself only exists in the phone tier) */
+#drawerClose { display: none; }
 #drawerRightClose {
   display: none; width: 28px; height: 26px; flex: 0 0 auto; margin-left: 8px;
   border: 1px solid var(--border); border-radius: var(--r-sm);
