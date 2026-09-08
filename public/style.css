@@ -1025,16 +1025,19 @@ body.light::after { opacity: .03; }
     box-shadow: -8px 0 24px rgba(0, 0, 0, .45);
   }
   body.right-open::after { content: ''; position: fixed; inset: 0; z-index: 55; background: rgba(0, 0, 0, .45); }
-  #drawerRightClose {
-    display: none; width: 28px; height: 26px; flex: 0 0 auto; margin-left: 8px;
-    border: 1px solid var(--border); border-radius: var(--r-sm);
-    background: var(--panel2); color: var(--muted);
-    font-size: 15px; line-height: 1; align-items: center; justify-content: center; cursor: pointer;
-  }
   body.right-open #drawerRightClose { display: flex; }
   /* let the negotiation control bar wrap instead of overflowing */
   .header-actions, .delib-row { flex-wrap: wrap; }
   .modal-sheet, .modal-box { max-width: 96vw; }
+}
+
+/* right-rail drawer x button: hidden by default everywhere (desktop never
+   shows it - the drawer behavior itself only exists in the phone tier) */
+#drawerRightClose {
+  display: none; width: 28px; height: 26px; flex: 0 0 auto; margin-left: 8px;
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--panel2); color: var(--muted);
+  font-size: 15px; line-height: 1; align-items: center; justify-content: center; cursor: pointer;
 }
 
 /* ---- per-turn usage footer (under agent bubbles) ---- */
